@@ -24,12 +24,6 @@ import io.swagger.annotations.ApiModelProperty;
 @JsonInclude(Include.NON_NULL)
 public class QueryResultJson extends ResultJson {
 
-    public static QueryResultJson error(String message) {
-        var result = new QueryResultJson();
-        result.error = message;
-        return result;
-    }
-
     @ApiModelProperty("Extensions that match the given query (may be empty)")
     public List<ExtensionJson> extensions;
     

@@ -46,22 +46,4 @@ public class ErrorResultException extends RuntimeException {
     public HttpStatus getStatus() {
         return status;
     }
-
-    public ResponseEntity<ResultJson> toResponseEntity() {
-        var json = ResultJson.error(getMessage());
-        var responseStatus = status != null ? status : HttpStatus.BAD_REQUEST;
-        return new ResponseEntity<>(json, responseStatus);
-    }
-
-    public <T extends ResultJson> ResponseEntity<T> toResponseEntity(Class<T> resultType) {
-        try {
-            var json = resultType.getDeclaredConstructor().newInstance();
-            json.error = getMessage();
-            var responseStatus = status != null ? status : HttpStatus.BAD_REQUEST;
-            return new ResponseEntity<>(json, responseStatus);
-        } catch (ReflectiveOperationException exc) {
-            throw new RuntimeException(exc);
-        }
-    }
-
 }

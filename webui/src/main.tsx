@@ -23,7 +23,7 @@ import { Banner } from './components/banner';
 import { ErrorDialog } from './components/error-dialog';
 import { handleError, getCookieValueByKey, setCookie } from './utils';
 import { ExtensionRegistryService } from './extension-registry-service';
-import { UserData, isError, ReportedError } from './extension-registry-types';
+import { UserData, ReportedError } from './extension-registry-types';
 import { MainContext } from './context';
 import { PageSettings } from './page-settings';
 import { HeaderMenu } from './header-menu';
@@ -76,15 +76,10 @@ class MainComponent extends React.Component<MainComponent.Props, MainComponent.S
     }
 
     componentDidMount(): void {
-        // If there was an authentication error, get the message from the server and show it
-        const searchParams = new URLSearchParams(window.location.search);
-        if (searchParams.has('auth-error')) {
-            this.props.service.getUserAuthError()
-                .then(this.handleError);
-        }
-
         // Get data of the currently logged in user
-        this.updateUser();
+        this.props.service.initKeycloak().then(() => {
+            this.updateUser();
+        });
 
         // Check a cookie to determine whether a banner should be shown
         const banner = this.props.pageSettings.elements.banner;
@@ -100,20 +95,14 @@ class MainComponent extends React.Component<MainComponent.Props, MainComponent.S
         }
     }
 
-    protected readonly updateUser = async () => {
-        try {
+    protected readonly updateUser = () => {
             this.setState({ userLoading: true });
-            const user = await this.props.service.getUser();
-            if (isError(user)) {
-                // An error result with HTTP OK status indicates that the user is not logged in.
-                this.setState({ user: undefined, userLoading: false });
-            } else {
-                this.setState({ user, userLoading: false });
-            }
-        } catch (err) {
-            this.handleError(err);
-            this.setState({ userLoading: false });
-        }
+            this.props.service.getUser()
+                .then(user => this.setState({ user, userLoading: false }))
+                .catch(err => {
+                    this.handleError(err);
+                    this.setState({ userLoading: false });
+                });
     };
 
     readonly handleError = (err: Error | Partial<ErrorResponse> | ReportedError) => {
@@ -136,6 +125,10 @@ class MainComponent extends React.Component<MainComponent.Props, MainComponent.S
             setCookie(cookie);
         }
         this.setState({ isBannerOpen: false });
+    };
+
+    protected readonly login = () => {
+        this.props.service.login();
     };
 
     render(): React.ReactNode {
@@ -181,7 +174,7 @@ class MainComponent extends React.Component<MainComponent.Props, MainComponent.S
                                             <UserAvatar />
                                             :
                                             <IconButton
-                                                href={this.props.service.getLoginUrl()}
+                                                onClick={this.login}
                                                 title='Log In'
                                                 aria-label='Log In' >
                                                 <AccountBoxIcon />

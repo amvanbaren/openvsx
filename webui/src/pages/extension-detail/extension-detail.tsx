@@ -315,7 +315,7 @@ export class ExtensionDetailComponent extends React.Component<ExtensionDetailCom
                 <Box ml={1}>
                     This version of the &ldquo;{extension.displayName || extension.name}&rdquo; extension was published
                     by <Link href={extension.publishedBy.homepage}>
-                        {extension.publishedBy.loginName}
+                        {extension.publishedBy.userName}
                     </Link>. That user account is not a verified publisher of
                     the namespace &ldquo;{extension.namespace}&rdquo; of
                     this extension. <Link
@@ -413,7 +413,7 @@ export class ExtensionDetailComponent extends React.Component<ExtensionDetailCom
                 user.avatarUrl ?
                 <Avatar
                     src={user.avatarUrl}
-                    alt={user.fullName || user.loginName}
+                    alt={user.fullName || user.userName}
                     variant='rounded'
                     classes={{ root: this.props.classes.avatarPopover }} />
                 : null
@@ -424,11 +424,11 @@ export class ExtensionDetailComponent extends React.Component<ExtensionDetailCom
                     <Typography variant='h6'>{user.fullName}</Typography>
                     : null
                 }
-                <Typography variant='body1'>{user.loginName}</Typography>
+                <Typography variant='body1'>{user.userName}</Typography>
             </Box>
         </Box>;
         return <HoverPopover
-            id={`user_${user.loginName}_popover`}
+            id={`user_${user.userName}_popover`}
             popupContent={popupContent}
             className={this.props.classes.alignVertically} >
             <Link href={user.homepage}
@@ -436,13 +436,13 @@ export class ExtensionDetailComponent extends React.Component<ExtensionDetailCom
                 {
                     user.avatarUrl ?
                     <React.Fragment>
-                        {user.loginName}&nbsp;<Avatar
+                        {user.userName}&nbsp;<Avatar
                             src={user.avatarUrl}
-                            alt={user.loginName}
+                            alt={user.userName}
                             variant='circle'
                             classes={{ root: this.props.classes.avatar }} />
                     </React.Fragment>
-                    : user.loginName
+                    : user.userName
                 }
             </Link>
         </HoverPopover>;

@@ -1,21 +1,10 @@
-/********************************************************************************
- * Copyright (c) 2020 TypeFox and others
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License v. 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0.
- *
- * SPDX-License-Identifier: EPL-2.0
- ********************************************************************************/
-package org.eclipse.openvsx.entities;
-
-import javax.persistence.AttributeConverter;
-import javax.persistence.Converter;
+package org.eclipse.openvsx.db.migration;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-@Converter
+import javax.persistence.AttributeConverter;
+
 public class EclipseDataConverter implements AttributeConverter<EclipseData, String> {
 
     private final ObjectMapper objectMapper = new ObjectMapper();

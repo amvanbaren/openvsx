@@ -14,8 +14,6 @@ import static org.eclipse.openvsx.entities.FileResource.CHANGELOG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -32,6 +30,9 @@ import java.util.zip.ZipOutputStream;
 
 import javax.persistence.EntityManager;
 
+import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenIdClaims;
+import com.c4_soft.springaddons.security.oauth2.test.annotations.keycloak.WithMockKeycloakAuth;
+import com.c4_soft.springaddons.security.oauth2.test.mockmvc.keycloak.ServletKeycloakAuthUnitTestingSupport;
 import net.javacrumbs.shedlock.core.LockProvider;
 import org.eclipse.openvsx.adapter.VSCodeIdService;
 import org.eclipse.openvsx.cache.CacheService;
@@ -39,20 +40,13 @@ import org.eclipse.openvsx.cache.ExtensionJsonCacheKeyGenerator;
 import org.eclipse.openvsx.dto.ExtensionVersionDTO;
 import org.eclipse.openvsx.eclipse.EclipseService;
 import org.eclipse.openvsx.entities.*;
-import org.eclipse.openvsx.json.ExtensionJson;
-import org.eclipse.openvsx.json.NamespaceJson;
-import org.eclipse.openvsx.json.ResultJson;
-import org.eclipse.openvsx.json.ReviewJson;
-import org.eclipse.openvsx.json.ReviewListJson;
-import org.eclipse.openvsx.json.SearchEntryJson;
-import org.eclipse.openvsx.json.SearchResultJson;
-import org.eclipse.openvsx.json.UserJson;
+import org.eclipse.openvsx.json.*;
+import org.eclipse.openvsx.keycloak.KeycloakService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.ExtensionSearch;
 import org.eclipse.openvsx.search.ISearchService;
 import org.eclipse.openvsx.search.SearchUtilService;
-import org.eclipse.openvsx.security.OAuth2UserServices;
-import org.eclipse.openvsx.security.TokenService;
+import org.eclipse.openvsx.security.SecurityConfig;
 import org.eclipse.openvsx.storage.AzureBlobStorageService;
 import org.eclipse.openvsx.storage.AzureDownloadCountService;
 import org.eclipse.openvsx.storage.GoogleCloudStorageService;
@@ -68,12 +62,13 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHitsImpl;
 import org.springframework.data.elasticsearch.core.TotalHitsRelation;
 import org.springframework.data.util.Streamable;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -83,10 +78,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @WebMvcTest(RegistryAPI.class)
 @AutoConfigureWebClient
 @MockBean({
-    ClientRegistrationRepository.class, UpstreamRegistryService.class, GoogleCloudStorageService.class,
-    AzureBlobStorageService.class, VSCodeIdService.class, AzureDownloadCountService.class, LockProvider.class,
-    CacheService.class
+    UpstreamRegistryService.class, GoogleCloudStorageService.class, AzureBlobStorageService.class,
+    VSCodeIdService.class, AzureDownloadCountService.class, LockProvider.class, CacheService.class,
+    EclipseService.class
 })
+@Import({ ServletKeycloakAuthUnitTestingSupport.UnitTestConfig.class, SecurityConfig.class })
 public class RegistryAPITest {
 
     @SpyBean
@@ -102,7 +98,7 @@ public class RegistryAPITest {
     EntityManager entityManager;
 
     @MockBean
-    EclipseService eclipse;
+    KeycloakService keycloak;
 
     @Autowired
     MockMvc mockMvc;
@@ -114,7 +110,7 @@ public class RegistryAPITest {
     public void testPublicNamespace() throws Exception {
         var namespace = mockNamespace();
         Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
-                .thenReturn(0l);
+                .thenReturn(0L);
         
         mockMvc.perform(get("/api/{namespace}", "foobar"))
                 .andExpect(status().isOk())
@@ -127,10 +123,8 @@ public class RegistryAPITest {
     @Test
     public void testVerifiedNamespace() throws Exception {
         var namespace = mockNamespace();
-        var user = new UserData();
-        user.setLoginName("test_user");
         Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
-                .thenReturn(1l);
+                .thenReturn(1L);
 
         mockMvc.perform(get("/api/{namespace}", "foobar"))
                 .andExpect(status().isOk())
@@ -468,7 +462,7 @@ public class RegistryAPITest {
                 .andExpect(status().isOk())
                 .andExpect(content().json(reviewsJson(rs -> {
                     var u1 = new UserJson();
-                    u1.loginName = "user1";
+                    u1.userName = "user1";
                     var r1 = new ReviewJson();
                     r1.user = u1;
                     r1.rating = 3;
@@ -476,7 +470,7 @@ public class RegistryAPITest {
                     r1.timestamp = "2000-01-01T10:00Z";
                     rs.reviews.add(r1);
                     var u2 = new UserJson();
-                    u2.loginName = "user2";
+                    u2.userName = "user2";
                     var r2 = new ReviewJson();
                     r2.user = u2;
                     r2.rating = 4;
@@ -858,7 +852,7 @@ public class RegistryAPITest {
                         e.name = "bar";
                         e.version = "1.0.0";
                         var u = new UserJson();
-                        u.loginName = "test_user";
+                        u.userName = "test_user";
                         e.publishedBy = u;
                         e.verified = true;
                     })));
@@ -904,7 +898,7 @@ public class RegistryAPITest {
                     e.name = "bar";
                     e.version = "1.0.0";
                     var u = new UserJson();
-                    u.loginName = "test_user";
+                    u.userName = "test_user";
                     e.publishedBy = u;
                     e.verified = true;
                 })));
@@ -924,7 +918,7 @@ public class RegistryAPITest {
                     e.name = "bar";
                     e.version = "1.0.0";
                     var u = new UserJson();
-                    u.loginName = "test_user";
+                    u.userName = "test_user";
                     e.publishedBy = u;
                     e.verified = true;
                 })));
@@ -944,7 +938,7 @@ public class RegistryAPITest {
                     e.name = "bar";
                     e.version = "1.0.0";
                     var u = new UserJson();
-                    u.loginName = "test_user";
+                    u.userName = "test_user";
                     e.publishedBy = u;
                     e.verified = false;
                 })));
@@ -964,7 +958,7 @@ public class RegistryAPITest {
                     e.name = "bar";
                     e.version = "1.0.0";
                     var u = new UserJson();
-                    u.loginName = "test_user";
+                    u.userName = "test_user";
                     e.publishedBy = u;
                     e.verified = false;
                 })));
@@ -1053,13 +1047,14 @@ public class RegistryAPITest {
     }
     
     @Test
+    @WithMockKeycloakAuth(authorities = { "ROLE_USER" }, claims = @OpenIdClaims(sub = "6d773836-bb12-11ec-8422-0242ac120002"))
     public void testPostReview() throws Exception {
-        var user = mockUserData();
+        var userId = "6d773836-bb12-11ec-8422-0242ac120002";
         var extVersion = mockExtension();
         var extension = extVersion.getExtension();
         Mockito.when(repositories.findExtension("bar", "foo"))
                 .thenReturn(extension);
-        Mockito.when(repositories.findActiveReviews(extension, user))
+        Mockito.when(repositories.findActiveReviews(extension, userId))
                 .thenReturn(Streamable.empty());
         Mockito.when(repositories.findActiveReviews(extension))
                 .thenReturn(Streamable.empty());
@@ -1068,9 +1063,7 @@ public class RegistryAPITest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(reviewJson(r -> {
                     r.rating = 3;
-                }))
-                .with(user("test_user"))
-                .with(csrf().asHeader()))
+                })))
                 .andExpect(status().isCreated())
                 .andExpect(content().json(successJson("Added review for foo.bar")));
     }
@@ -1081,114 +1074,106 @@ public class RegistryAPITest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(reviewJson(r -> {
                     r.rating = 3;
-                })).with(csrf().asHeader()))
+                })))
                 .andExpect(status().isForbidden());
     }
     
     @Test
+    @WithMockKeycloakAuth(authorities = { "ROLE_USER" }, claims = @OpenIdClaims(sub = "6d773836-bb12-11ec-8422-0242ac120002"))
     public void testPostReviewInvalidRating() throws Exception {
         mockMvc.perform(post("/api/{namespace}/{extension}/review", "foo", "bar")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(reviewJson(r -> {
                     r.rating = 100;
-                }))
-                .with(user("test_user"))
-                .with(csrf().asHeader()))
+                })))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().json(errorJson("The rating must be an integer number between 0 and 5.")));
     }
     
     @Test
+    @WithMockKeycloakAuth(authorities = { "ROLE_USER" }, claims = @OpenIdClaims(sub = "6d773836-bb12-11ec-8422-0242ac120002"))
     public void testPostReviewUnknownExtension() throws Exception {
-        mockUserData();
         mockMvc.perform(post("/api/{namespace}/{extension}/review", "foo", "bar")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(reviewJson(r -> {
                     r.rating = 3;
-                }))
-                .with(user("test_user"))
-                .with(csrf().asHeader()))
+                })))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().json(errorJson("Extension not found: foo.bar")));
     }
     
     @Test
+    @WithMockKeycloakAuth(authorities = { "ROLE_USER" }, claims = @OpenIdClaims(sub = "6d773836-bb12-11ec-8422-0242ac120002"))
     public void testPostExistingReview() throws Exception {
-        var user = mockUserData();
+        var userId = "6d773836-bb12-11ec-8422-0242ac120002";
         var extVersion = mockExtension();
         var extension = extVersion.getExtension();
         Mockito.when(repositories.findExtension("bar", "foo"))
                 .thenReturn(extension);
         var review = new ExtensionReview();
         review.setExtension(extension);
-        review.setUser(user);
+        review.setUserId(userId);
         review.setActive(true);
-        Mockito.when(repositories.findActiveReviews(extension, user))
+        Mockito.when(repositories.findActiveReviews(extension, userId))
                 .thenReturn(Streamable.of(review));
 
         mockMvc.perform(post("/api/{namespace}/{extension}/review", "foo", "bar")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(reviewJson(r -> {
                     r.rating = 3;
-                }))
-                .with(user("test_user"))
-                .with(csrf().asHeader()))
+                })))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().json(errorJson("You must not submit more than one review for an extension.")));
     }
     
     @Test
+    @WithMockKeycloakAuth(authorities = { "ROLE_USER" }, claims = @OpenIdClaims(sub = "6d773836-bb12-11ec-8422-0242ac120002"))
     public void testDeleteReview() throws Exception {
-        var user = mockUserData();
+        var userId = "6d773836-bb12-11ec-8422-0242ac120002";
         var extVersion = mockExtension();
         var extension = extVersion.getExtension();
         Mockito.when(repositories.findExtension("bar", "foo"))
                 .thenReturn(extension);
         var review = new ExtensionReview();
         review.setExtension(extension);
-        review.setUser(user);
+        review.setUserId(userId);
         review.setActive(true);
-        Mockito.when(repositories.findActiveReviews(extension, user))
+        Mockito.when(repositories.findActiveReviews(extension, userId))
                 .thenReturn(Streamable.of(review));
         Mockito.when(repositories.findActiveReviews(extension))
                 .thenReturn(Streamable.empty());
 
-        mockMvc.perform(post("/api/{namespace}/{extension}/review/delete", "foo", "bar")
-                .with(user("test_user"))
-                .with(csrf().asHeader()))
+        mockMvc.perform(post("/api/{namespace}/{extension}/review/delete", "foo", "bar"))
                 .andExpect(status().isOk())
                 .andExpect(content().json(successJson("Deleted review for foo.bar")));
     }
     
     @Test
     public void testDeleteReviewNotLoggedIn() throws Exception {
-        mockMvc.perform(post("/api/{namespace}/{extension}/review/delete", "foo", "bar").with(csrf()))
+        mockMvc.perform(post("/api/{namespace}/{extension}/review/delete", "foo", "bar"))
                 .andExpect(status().isForbidden());
     }
     
     @Test
+    @WithMockKeycloakAuth(authorities = { "ROLE_USER" }, claims = @OpenIdClaims(sub = "6d773836-bb12-11ec-8422-0242ac120002"))
     public void testDeleteReviewUnknownExtension() throws Exception {
-        mockUserData();
-        mockMvc.perform(post("/api/{namespace}/{extension}/review/delete", "foo", "bar")
-                .with(user("test_user"))
-                .with(csrf().asHeader()))
+        mockMvc.perform(post("/api/{namespace}/{extension}/review/delete", "foo", "bar"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().json(errorJson("Extension not found: foo.bar")));
     }
     
     @Test
+    @WithMockKeycloakAuth(authorities = { "ROLE_USER" }, claims = @OpenIdClaims(sub = "6d773836-bb12-11ec-8422-0242ac120002"))
     public void testDeleteNonExistingReview() throws Exception {
-        var user = mockUserData();
+        var userId = "6d773836-bb12-11ec-8422-0242ac120002";
         var extVersion = mockExtension();
         var extension = extVersion.getExtension();
         Mockito.when(repositories.findExtension("bar", "foo"))
                 .thenReturn(extension);
-        Mockito.when(repositories.findActiveReviews(extension, user))
+        Mockito.when(repositories.findActiveReviews(extension, userId))
                 .thenReturn(Streamable.empty());
 
-        mockMvc.perform(post("/api/{namespace}/{extension}/review/delete", "foo", "bar")
-                .with(user("test_user"))
-                .with(csrf().asHeader()))
+        mockMvc.perform(post("/api/{namespace}/{extension}/review/delete", "foo", "bar"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().json(errorJson("You have not submitted any review yet.")));
     }
@@ -1253,13 +1238,9 @@ public class RegistryAPITest {
         for(var i = 0; i < targetPlatforms.size(); i++) {
             var targetPlatform = targetPlatforms.get(i);
             versions.add(new ExtensionVersionDTO(
-                    namespaceId, namespacePublicId, namespaceName, extensionId, null, extensionName,
-                    null, 0, null, null,
-                    null, null, null, null, null, null,
-                    id + i, version, targetPlatform, false, false, timestamp, displayName,
-                    null, null, null, null, null, null, null,
-                    null, null, null, null, null, null, null,
-                    null
+                    namespaceId, namespacePublicId, namespaceName, extensionId, null, extensionName, null, 0, null,
+                    null, null, id + i, version, targetPlatform, false, false, timestamp, displayName, null, null,
+                    (String) null, null, null, null, null, null, null, null, null, null, null, null, null
             ));
         }
 
@@ -1298,13 +1279,9 @@ public class RegistryAPITest {
         var displayName = "Foo Bar";
 
         var extVersion = new ExtensionVersionDTO(
-                namespaceId, namespacePublicId, namespaceName, extensionId, null, extensionName,
-                null, 0, null, null,
-                null, null, null, null, null, null, id,
-                version, TargetPlatform.NAME_UNIVERSAL, false, false, timestamp, displayName,
-                null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null,
-                null
+                namespaceId, namespacePublicId, namespaceName, extensionId, null, extensionName, null, 0, null,
+                null, null, id, version, TargetPlatform.NAME_UNIVERSAL, false, false, timestamp, displayName, null, null,
+                (String) null, null, null, null, null, null, null, null, null, null, null, null, null
         );
 
         var extensionPublicId = "5678";
@@ -1449,26 +1426,40 @@ public class RegistryAPITest {
     private void mockReviews() {
         var extVersion = mockExtension();
         var extension = extVersion.getExtension();
-        var user1 = new UserData();
-        user1.setLoginName("user1");
+        var userId1 = "3eb17bb2-bbe7-11ec-8422-0242ac120002";
+        var userName1 = "user1";
         var review1 = new ExtensionReview();
         review1.setExtension(extension);
-        review1.setUser(user1);
+        review1.setUserId(userId1);
         review1.setRating(3);
         review1.setComment("Somewhat ok");
         review1.setTimestamp(LocalDateTime.parse("2000-01-01T10:00"));
         review1.setActive(true);
-        var user2 = new UserData();
-        user2.setLoginName("user2");
+        var userId2 = "4a84d8bc-bbe7-11ec-8422-0242ac120002";
+        var userName2 = "user2";
         var review2 = new ExtensionReview();
         review2.setExtension(extension);
-        review2.setUser(user2);
+        review2.setUserId(userId2);
         review2.setRating(4);
         review2.setComment("Quite good");
         review2.setTimestamp(LocalDateTime.parse("2000-01-01T10:00"));
         review2.setActive(true);
         Mockito.when(repositories.findActiveReviews(extension))
                 .thenReturn(Streamable.of(review1, review2));
+
+        Mockito.doAnswer(invocation -> {
+            var users = Map.of(
+                    userId1, userName1,
+                    userId2, userName2
+            );
+
+            var list = invocation.getArgument(0, ReviewListJson.class);
+            for(var review : list.reviews) {
+                review.user.userName = users.get(review.user.userId);
+            }
+
+            return list;
+        }).when(keycloak).enrichUserJsons(any(ReviewListJson.class));
     }
 
     private String reviewsJson(Consumer<ReviewListJson> content) throws JsonProcessingException {
@@ -1505,15 +1496,23 @@ public class RegistryAPITest {
     }
 
     private PersonalAccessToken mockAccessToken() {
-        var userData = new UserData();
-        userData.setLoginName("test_user");
         var token = new PersonalAccessToken();
-        token.setUser(userData);
+        token.setUserId("4bf90be0-ba35-11ec-8422-0242ac120002");
         token.setCreatedTimestamp(LocalDateTime.parse("2000-01-01T10:00"));
         token.setValue("my_token");
         token.setActive(true);
         Mockito.when(repositories.findAccessToken("my_token"))
                 .thenReturn(token);
+
+        Mockito.doAnswer(invocation -> {
+            var json = invocation.getArgument(0, ExtensionJson.class);
+            if(json.publishedBy.userId.equals("4bf90be0-ba35-11ec-8422-0242ac120002")) {
+                json.publishedBy.userName = "test_user";
+            }
+
+            return json;
+        }).when(keycloak).enrichUserJson(any(ExtensionJson.class));
+
         return token;
     }
     
@@ -1548,31 +1547,30 @@ public class RegistryAPITest {
                 .thenReturn(Streamable.empty());
         if (mode.equals("owner")) {
             var ownerMem = new NamespaceMembership();
-            ownerMem.setUser(token.getUser());
+            ownerMem.setUserId(token.getUserId());
             ownerMem.setNamespace(namespace);
             ownerMem.setRole(NamespaceMembership.ROLE_OWNER);
             Mockito.when(repositories.findMemberships(namespace, NamespaceMembership.ROLE_OWNER))
                     .thenReturn(Streamable.of(ownerMem));
             Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
                     .thenReturn(1l);
-            Mockito.when(repositories.findMembership(token.getUser(), namespace))
+            Mockito.when(repositories.findMembership(token.getUserId(), namespace))
                     .thenReturn(ownerMem);
-            Mockito.when(repositories.countMemberships(token.getUser(), namespace))
+            Mockito.when(repositories.countMemberships(token.getUserId(), namespace))
                     .thenReturn(1l);
         } else if (mode.equals("contributor") || mode.equals("sole-contributor") || mode.equals("existing")) {
             var contribMem = new NamespaceMembership();
-            contribMem.setUser(token.getUser());
+            contribMem.setUserId(token.getUserId());
             contribMem.setNamespace(namespace);
             contribMem.setRole(NamespaceMembership.ROLE_CONTRIBUTOR);
-            Mockito.when(repositories.findMembership(token.getUser(), namespace))
+            Mockito.when(repositories.findMembership(token.getUserId(), namespace))
                     .thenReturn(contribMem);
-            Mockito.when(repositories.countMemberships(token.getUser(), namespace))
+            Mockito.when(repositories.countMemberships(token.getUserId(), namespace))
                     .thenReturn(1l);
             if (mode.equals("contributor")) {
-                var otherUser = new UserData();
-                otherUser.setLoginName("other_user");
+                var otherUserId = "1866d8d0-bbe7-11ec-8422-0242ac120002";
                 var ownerMem = new NamespaceMembership();
-                ownerMem.setUser(otherUser);
+                ownerMem.setUserId(otherUserId);
                 ownerMem.setNamespace(namespace);
                 ownerMem.setRole(NamespaceMembership.ROLE_OWNER);
                 Mockito.when(repositories.findMemberships(namespace, NamespaceMembership.ROLE_OWNER))
@@ -1586,10 +1584,9 @@ public class RegistryAPITest {
                         .thenReturn(0l);
             }
         } else if (mode.equals("privileged") || mode.equals("unrelated")) {
-            var otherUser = new UserData();
-            otherUser.setLoginName("other_user");
+            var otherUserId = "1866d8d0-bbe7-11ec-8422-0242ac120002";
             var ownerMem = new NamespaceMembership();
-            ownerMem.setUser(otherUser);
+            ownerMem.setUserId(otherUserId);
             ownerMem.setNamespace(namespace);
             ownerMem.setRole(NamespaceMembership.ROLE_OWNER);
             Mockito.when(repositories.findMemberships(namespace, NamespaceMembership.ROLE_OWNER))
@@ -1597,7 +1594,8 @@ public class RegistryAPITest {
             Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
                     .thenReturn(1l);
             if (mode.equals("privileged")) {
-                token.getUser().setRole(UserData.ROLE_PRIVILEGED);
+                Mockito.when(keycloak.getUserRoles(token.getUserId()))
+                        .thenReturn(List.of("privileged"));
             }
         } else {
             Mockito.when(repositories.findMemberships(namespace, NamespaceMembership.ROLE_OWNER))
@@ -1613,28 +1611,26 @@ public class RegistryAPITest {
         return new ObjectMapper().writeValueAsString(json);
     }
 
-    private UserData mockUserData() {
-        var userData = new UserData();
-        userData.setLoginName("test_user");
-        userData.setFullName("Test User");
-        userData.setProviderUrl("http://example.com/test");
-        Mockito.doReturn(userData).when(users).findLoggedInUser();
-        return userData;
-    }
-
     private String successJson(String message) throws JsonProcessingException {
-        var json = ResultJson.success(message);
-        return new ObjectMapper().writeValueAsString(json);
+        var result = new ResultJson();
+        result.success = message;
+        return resultJson(result);
     }
 
     private String errorJson(String message) throws JsonProcessingException {
-        var json = ResultJson.error(message);
-        return new ObjectMapper().writeValueAsString(json);
+        var result = new ResultJson();
+        result.error = message;
+        return resultJson(result);
     }
 
     private String warningJson(String message) throws JsonProcessingException {
-        var json = ResultJson.warning(message);
-        return new ObjectMapper().writeValueAsString(json);
+        var result = new ResultJson();
+        result.warning = message;
+        return resultJson(result);
+    }
+
+    private String resultJson(ResultJson result) throws JsonProcessingException {
+        return new ObjectMapper().writeValueAsString(result);
     }
 
     private byte[] createExtensionPackage(String name, String version, String license) throws IOException {
@@ -1696,16 +1692,6 @@ public class RegistryAPITest {
         }
 
         @Bean
-        OAuth2UserServices oauth2UserServices() {
-            return new OAuth2UserServices();
-        }
-
-        @Bean
-        TokenService tokenService() {
-            return new TokenService();
-        }
-
-        @Bean
         LocalRegistryService localRegistryService() {
             return new LocalRegistryService();
         }
@@ -1713,6 +1699,11 @@ public class RegistryAPITest {
         @Bean
         ExtensionService extensionService() {
             return new ExtensionService();
+        }
+
+        @Bean
+        JsonService jsonService() {
+            return new JsonService();
         }
 
         @Bean

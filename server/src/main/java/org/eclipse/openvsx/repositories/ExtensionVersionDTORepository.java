@@ -17,9 +17,7 @@ import org.jooq.impl.DSL;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.eclipse.openvsx.jooq.Tables.*;
 
@@ -121,12 +119,7 @@ public class ExtensionVersionDTORepository {
                     EXTENSION.DOWNLOAD_COUNT,
                     EXTENSION.PUBLISHED_DATE,
                     EXTENSION.LAST_UPDATED_DATE,
-                    USER_DATA.ID,
-                    USER_DATA.LOGIN_NAME,
-                    USER_DATA.FULL_NAME,
-                    USER_DATA.AVATAR_URL,
-                    USER_DATA.PROVIDER_URL,
-                    USER_DATA.PROVIDER,
+                    PERSONAL_ACCESS_TOKEN.USER_ID,
                     EXTENSION_VERSION.ID,
                     EXTENSION_VERSION.VERSION,
                     EXTENSION_VERSION.TARGET_PLATFORM,
@@ -154,7 +147,6 @@ public class ExtensionVersionDTORepository {
                 .join(EXTENSION).on(EXTENSION.ID.eq(EXTENSION_VERSION.EXTENSION_ID))
                 .join(NAMESPACE).on(NAMESPACE.ID.eq(EXTENSION.NAMESPACE_ID))
                 .leftJoin(PERSONAL_ACCESS_TOKEN).on(PERSONAL_ACCESS_TOKEN.ID.eq(EXTENSION_VERSION.PUBLISHED_WITH_ID))
-                .join(USER_DATA).on(USER_DATA.ID.eq(PERSONAL_ACCESS_TOKEN.USER_DATA))
                 .where(EXTENSION_VERSION.ACTIVE.eq(true));
     }
 

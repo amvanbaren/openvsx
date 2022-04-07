@@ -1,0 +1,8 @@
+{
+  "realm": "OpenVSX",
+  "auth-server-url": "http://localhost:9090/",
+  "ssl-required": "external",
+  "resource": "openvsx-webui",
+  "public-client": true,
+  "confidential-port": 0
+}

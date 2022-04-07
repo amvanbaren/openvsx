@@ -14,20 +14,21 @@ import java.util.function.Function;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import org.eclipse.openvsx.entities.EclipseData;
+import org.eclipse.openvsx.entities.PublisherAgreement;
 
 /**
  * https://eclipsefdn.github.io/openvsx-publisher-agreement-specs/#/paths/~1publisher_agreement/post
  */
 public class PublisherAgreementResponse {
 
-    public EclipseData.PublisherAgreement createEntityData(Function<String, LocalDateTime> parseDate) {
-        var pub = new EclipseData.PublisherAgreement();
-        pub.isActive = true;
-        pub.documentId = documentID;
-        pub.version = version;
-        pub.timestamp = parseDate.apply(effectiveDate);
-        return pub;
+    public PublisherAgreement createEntityData(Function<String, LocalDateTime> parseDate) {
+        var agreement = new PublisherAgreement();
+        agreement.setActive(true);
+        agreement.setDocumentId(documentID);
+        agreement.setVersion(version);
+        agreement.setPersonId(personID);
+        agreement.setTimestamp(parseDate.apply(effectiveDate));
+        return agreement;
     }
 
     /** Unique identifier for an addressable object in the API. */

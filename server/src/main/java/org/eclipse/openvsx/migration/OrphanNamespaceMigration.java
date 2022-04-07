@@ -9,13 +9,10 @@
  ********************************************************************************/
 package org.eclipse.openvsx.migration;
 
-import java.util.LinkedHashSet;
-
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 
 import org.eclipse.openvsx.entities.NamespaceMembership;
-import org.eclipse.openvsx.entities.UserData;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+
+import java.util.LinkedHashSet;
 
 @Component
 public class OrphanNamespaceMigration {
@@ -48,11 +47,11 @@ public class OrphanNamespaceMigration {
             } else {
 
                 // Find all previous contributors
-                var contributors = new LinkedHashSet<UserData>();
+                var contributors = new LinkedHashSet<String>();
                 for (var extension : extensions) {
                     for (var extVersion : repositories.findActiveVersions(extension)) {
                         if (extVersion.getPublishedWith() != null) {
-                            contributors.add(extVersion.getPublishedWith().getUser());
+                            contributors.add(extVersion.getPublishedWith().getUserId());
                         }
                     }
                 }
@@ -65,7 +64,7 @@ public class OrphanNamespaceMigration {
                     for (var contributor : contributors) {
                         var membership = new NamespaceMembership();
                         membership.setNamespace(namespace);
-                        membership.setUser(contributor);
+                        membership.setUserId(contributor);
                         membership.setRole(NamespaceMembership.ROLE_CONTRIBUTOR);
                         entityManager.persist(membership);
                     }

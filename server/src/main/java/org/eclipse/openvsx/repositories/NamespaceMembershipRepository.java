@@ -13,13 +13,12 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.util.Streamable;
 import org.eclipse.openvsx.entities.Namespace;
 import org.eclipse.openvsx.entities.NamespaceMembership;
-import org.eclipse.openvsx.entities.UserData;
 
 public interface NamespaceMembershipRepository extends Repository<NamespaceMembership, Long> {
 
-    NamespaceMembership findByUserAndNamespace(UserData user, Namespace namespace);
+    NamespaceMembership findByUserIdAndNamespace(String userId, Namespace namespace);
 
-    long countByUserAndNamespace(UserData user, Namespace namespace);
+    long countByUserIdAndNamespace(String userId, Namespace namespace);
 
     Streamable<NamespaceMembership> findByNamespaceAndRoleIgnoreCase(Namespace namespace, String role);
 
@@ -27,7 +26,7 @@ public interface NamespaceMembershipRepository extends Repository<NamespaceMembe
 
     Streamable<NamespaceMembership> findByNamespace(Namespace namespace);
 
-    Streamable<NamespaceMembership> findByUser(UserData user);
+    Streamable<NamespaceMembership> findByUserId(String userId);
 
-    Streamable<NamespaceMembership> findByUserAndRoleIgnoreCaseOrderByNamespaceName(UserData user, String role);
+    Streamable<NamespaceMembership> findByUserIdAndRoleIgnoreCaseOrderByNamespaceName(String userId, String role);
 }

@@ -126,10 +126,10 @@ public class RelevanceService {
     private boolean isVerified(ExtensionVersion extVersion) {
         if (extVersion.getPublishedWith() == null)
             return false;
-        var user = extVersion.getPublishedWith().getUser();
+        var userId = extVersion.getPublishedWith().getUserId();
         var namespace = extVersion.getExtension().getNamespace();
         return repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER) > 0
-                && repositories.countMemberships(user, namespace) > 0;
+                && repositories.countMemberships(userId, namespace) > 0;
     }
 
     public static class SearchStats {

@@ -27,12 +27,6 @@ import io.swagger.annotations.ApiModelProperty;;
 @JsonInclude(Include.NON_NULL)
 public class SearchResultJson extends ResultJson {
 
-    public static SearchResultJson error(String message) {
-        var result = new SearchResultJson();
-        result.error = message;
-        return result;
-    }
-
     @ApiModelProperty("Number of skipped entries according to the search query")
     @NotNull
     @Min(0)

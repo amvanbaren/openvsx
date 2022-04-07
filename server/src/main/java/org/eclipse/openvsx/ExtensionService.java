@@ -66,7 +66,7 @@ public class ExtensionService {
     public ExtensionVersion publishVersion(InputStream content, PersonalAccessToken token) {
         try (var processor = new ExtensionProcessor(content)) {
             // Extract extension metadata from its manifest
-            var extVersion = createExtensionVersion(processor, token.getUser(), token);
+            var extVersion = createExtensionVersion(processor, token.getUserId(), token);
             processor.getExtensionDependencies().forEach(dep -> addDependency(dep, extVersion));
             processor.getBundledExtensions().forEach(dep -> addBundledExtension(dep, extVersion));
 
@@ -84,14 +84,14 @@ public class ExtensionService {
         }
     }
 
-    private ExtensionVersion createExtensionVersion(ExtensionProcessor processor, UserData user, PersonalAccessToken token) {
+    private ExtensionVersion createExtensionVersion(ExtensionProcessor processor, String userId, PersonalAccessToken token) {
         var namespaceName = processor.getNamespace();
         var namespace = repositories.findNamespace(namespaceName);
         if (namespace == null) {
             throw new ErrorResultException("Unknown publisher: " + namespaceName
                     + "\nUse the 'create-namespace' command to create a namespace corresponding to your publisher name.");
         }
-        if (!users.hasPublishPermission(user, namespace)) {
+        if (!users.hasPublishPermission(userId, namespace)) {
             throw new ErrorResultException("Insufficient access rights for publisher: " + namespace.getName());
         }
 
@@ -229,8 +229,8 @@ public class ExtensionService {
      * Reactivate all extension versions that have been published by the given user.
      */
     @Transactional
-    public void reactivateExtensions(UserData user) {
-        var accessTokens = repositories.findAccessTokens(user);
+    public void reactivateExtensions(String userId) {
+        var accessTokens = repositories.findAccessTokens(userId);
         var affectedExtensions = new LinkedHashSet<Extension>();
         for (var accessToken : accessTokens) {
             var versions = repositories.findVersionsByAccessToken(accessToken, false);

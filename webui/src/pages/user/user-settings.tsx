@@ -59,6 +59,10 @@ class UserSettingsComponent extends React.Component<UserSettingsComponent.Props>
         document.title = `Settings – ${this.context.pageSettings.pageTitle}`;
     }
 
+    protected readonly login = () => {
+        this.context.service.login();
+    };
+
     render() {
         if (this.props.userLoading) {
             return <DelayedLoadIndicator loading={true} />;
@@ -70,7 +74,7 @@ class UserSettingsComponent extends React.Component<UserSettingsComponent.Props>
                     <Typography variant='h4'>Not Logged In</Typography>
                     <Box mt={2}>
                         <Typography variant='body1'>
-                            Please <Link color='secondary' href={this.context.service.getLoginUrl()}>log in with GitHub</Link> to
+                            Please <Link color='secondary' onClick={this.login}>log in</Link> to
                             access your account settings.
                         </Typography>
                     </Box>

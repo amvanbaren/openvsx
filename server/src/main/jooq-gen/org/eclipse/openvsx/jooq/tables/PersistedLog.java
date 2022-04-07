@@ -8,13 +8,11 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
-import org.eclipse.openvsx.jooq.Indexes;
 import org.eclipse.openvsx.jooq.Keys;
 import org.eclipse.openvsx.jooq.Public;
 import org.eclipse.openvsx.jooq.tables.records.PersistedLogRecord;
 import org.jooq.Field;
 import org.jooq.ForeignKey;
-import org.jooq.Index;
 import org.jooq.Name;
 import org.jooq.Record;
 import org.jooq.Row4;
@@ -60,14 +58,14 @@ public class PersistedLog extends TableImpl<PersistedLogRecord> {
     public final TableField<PersistedLogRecord, LocalDateTime> TIMESTAMP = createField(DSL.name("timestamp"), SQLDataType.LOCALDATETIME(6), this, "");
 
     /**
-     * The column <code>public.persisted_log.user_data</code>.
-     */
-    public final TableField<PersistedLogRecord, Long> USER_DATA = createField(DSL.name("user_data"), SQLDataType.BIGINT, this, "");
-
-    /**
      * The column <code>public.persisted_log.message</code>.
      */
     public final TableField<PersistedLogRecord, String> MESSAGE = createField(DSL.name("message"), SQLDataType.VARCHAR(512), this, "");
+
+    /**
+     * The column <code>public.persisted_log.user_id</code>.
+     */
+    public final TableField<PersistedLogRecord, String> USER_ID = createField(DSL.name("user_id"), SQLDataType.VARCHAR(255), this, "");
 
     private PersistedLog(Name alias, Table<PersistedLogRecord> aliased) {
         this(alias, aliased, null);
@@ -108,11 +106,6 @@ public class PersistedLog extends TableImpl<PersistedLogRecord> {
     }
 
     @Override
-    public List<Index> getIndexes() {
-        return Arrays.<Index>asList(Indexes.PERSISTED_LOG__USER_DATA__IDX);
-    }
-
-    @Override
     public UniqueKey<PersistedLogRecord> getPrimaryKey() {
         return Keys.PERSISTED_LOG_PKEY;
     }
@@ -120,15 +113,6 @@ public class PersistedLog extends TableImpl<PersistedLogRecord> {
     @Override
     public List<UniqueKey<PersistedLogRecord>> getKeys() {
         return Arrays.<UniqueKey<PersistedLogRecord>>asList(Keys.PERSISTED_LOG_PKEY);
-    }
-
-    @Override
-    public List<ForeignKey<PersistedLogRecord, ?>> getReferences() {
-        return Arrays.<ForeignKey<PersistedLogRecord, ?>>asList(Keys.PERSISTED_LOG__PERSISTED_LOG_USER_DATA_FKEY);
-    }
-
-    public UserData userData() {
-        return new UserData(this, Keys.PERSISTED_LOG__PERSISTED_LOG_USER_DATA_FKEY);
     }
 
     @Override
@@ -162,7 +146,7 @@ public class PersistedLog extends TableImpl<PersistedLogRecord> {
     // -------------------------------------------------------------------------
 
     @Override
-    public Row4<Long, LocalDateTime, Long, String> fieldsRow() {
+    public Row4<Long, LocalDateTime, String, String> fieldsRow() {
         return (Row4) super.fieldsRow();
     }
 }

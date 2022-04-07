@@ -16,6 +16,8 @@ import static org.mockito.ArgumentMatchers.eq;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.security.Principal;
+import java.util.Set;
 
 import javax.persistence.EntityManager;
 
@@ -29,9 +31,10 @@ import org.eclipse.openvsx.UserService;
 import org.eclipse.openvsx.adapter.VSCodeIdService;
 import org.eclipse.openvsx.cache.CacheService;
 import org.eclipse.openvsx.entities.*;
+import org.eclipse.openvsx.json.JsonService;
+import org.eclipse.openvsx.keycloak.KeycloakService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.SearchUtilService;
-import org.eclipse.openvsx.security.TokenService;
 import org.eclipse.openvsx.storage.AzureBlobStorageService;
 import org.eclipse.openvsx.storage.AzureDownloadCountService;
 import org.eclipse.openvsx.storage.GoogleCloudStorageService;
@@ -41,6 +44,10 @@ import org.eclipse.openvsx.util.TargetPlatform;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.keycloak.KeycloakSecurityContext;
+import org.keycloak.adapters.OidcKeycloakAccount;
+import org.keycloak.adapters.springsecurity.token.KeycloakAuthenticationToken;
+import org.keycloak.representations.AccessToken;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -69,10 +76,10 @@ public class EclipseServiceTest {
     UserService users;
 
     @MockBean
-    TokenService tokens;
+    RestTemplate restTemplate;
 
     @MockBean
-    RestTemplate restTemplate;
+    KeycloakService keycloak;
 
     @Autowired
     EclipseService eclipse;
@@ -114,79 +121,35 @@ public class EclipseServiceTest {
     }
 
     @Test
-    public void testGetPublisherAgreement() throws Exception {
-        var user = mockUser();
-        var eclipseData = new EclipseData();
-        user.setEclipseData(eclipseData);
-        eclipseData.personId = "test";
-
-        Mockito.when(restTemplate.exchange(any(RequestEntity.class), eq(String.class)))
-            .thenReturn(mockAgreementResponse());
-
-        var agreement = eclipse.getPublisherAgreement(user);
-
-        assertThat(agreement).isNotNull();
-        assertThat(agreement.isActive).isTrue();
-        assertThat(agreement.documentId).isEqualTo("abcd");
-        assertThat(agreement.version).isEqualTo("1");
-        assertThat(agreement.timestamp).isNotNull();
-        assertThat(agreement.timestamp.toString()).isEqualTo("2020-10-09T05:10:32");
-    }
-
-    @Test
-    public void testGetPublisherAgreementNotFound() throws Exception {
-        var user = mockUser();
-        var eclipseData = new EclipseData();
-        user.setEclipseData(eclipseData);
-        eclipseData.personId = "test";
-
-        Mockito.when(restTemplate.exchange(any(RequestEntity.class), eq(String.class)))
-            .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
-
-        var agreement = eclipse.getPublisherAgreement(user);
-
-        assertThat(agreement).isNull();
-    }
-
-    @Test
-    public void testGetPublisherAgreementNotAuthenticated() throws Exception {
-        var user = mockUser();
-
-        var agreement = eclipse.getPublisherAgreement(user);
-
-        assertThat(agreement).isNull();
-    }
-
-    @Test
     public void testSignPublisherAgreement() throws Exception {
-        var user = mockUser();
+        var principal = mockPrincipal();
         Mockito.when(restTemplate.postForEntity(any(String.class), any(), eq(String.class)))
             .thenReturn(mockAgreementResponse());
-        Mockito.when(repositories.findAccessTokens(user))
+        Mockito.when(repositories.findAccessTokens("6d773836-bb12-11ec-8422-0242ac120002"))
             .thenReturn(Streamable.empty());
+        Mockito.when(restTemplate.exchange(any(RequestEntity.class), eq(String.class)))
+                .thenReturn(mockProfileResponse());
 
-        eclipse.signPublisherAgreement(user);
-
-        assertThat(user.getEclipseData()).isNotNull();
-        var ed = user.getEclipseData();
-        assertThat(ed.personId).isEqualTo("test");
-        assertThat(ed.publisherAgreement).isNotNull();
-        assertThat(ed.publisherAgreement.isActive).isTrue();
-        assertThat(ed.publisherAgreement.documentId).isEqualTo("abcd");
-        assertThat(ed.publisherAgreement.version).isEqualTo("1");
-        assertThat(ed.publisherAgreement.timestamp).isNotNull();
-        assertThat(ed.publisherAgreement.timestamp.toString()).isEqualTo("2020-10-09T05:10:32");
+        var json = eclipse.signPublisherAgreement(principal);
+        assertThat(json).isNotNull();
+        assertThat(json.userName).isEqualTo("test");
+        assertThat(json.publisherAgreement.status).isEqualTo("signed");
+        assertThat(json.publisherAgreement.timestamp).isNotNull();
+        assertThat(json.publisherAgreement.timestamp).isEqualTo("2020-10-09T05:10:32Z");
     }
 
     @Test
     public void testSignPublisherAgreementReactivateExtension() throws Exception {
-        var user = mockUser();
+        var principal = mockPrincipal();
         Mockito.when(restTemplate.postForEntity(any(String.class), any(), eq(String.class)))
             .thenReturn(mockAgreementResponse());
+        Mockito.when(restTemplate.exchange(any(RequestEntity.class), eq(String.class)))
+                .thenReturn(mockProfileResponse());
+
         var accessToken = new PersonalAccessToken();
-        accessToken.setUser(user);
+        accessToken.setUserId("6d773836-bb12-11ec-8422-0242ac120002");
         accessToken.setActive(true);
-        Mockito.when(repositories.findAccessTokens(user))
+        Mockito.when(repositories.findAccessTokens("6d773836-bb12-11ec-8422-0242ac120002"))
             .thenReturn(Streamable.of(accessToken));
         var namespace = new Namespace();
         namespace.setName("foo");
@@ -201,21 +164,20 @@ public class EclipseServiceTest {
         Mockito.when(repositories.findVersionsByAccessToken(accessToken, false))
             .thenReturn(Streamable.of(extVersion));
 
-        eclipse.signPublisherAgreement(user);
-
-        assertThat(user.getEclipseData()).isNotNull();
+        var json = eclipse.signPublisherAgreement(principal);
+        assertThat(json.publisherAgreement.status).isEqualTo("signed");
         assertThat(extVersion.isActive()).isTrue();
         assertThat(extension.isActive()).isTrue();
     }
 
     @Test
-    public void testPublisherAgreementAlreadySigned() throws Exception {
-        var user = mockUser();
+    public void testPublisherAgreementAlreadySigned() {
+        var principal = mockPrincipal();
         Mockito.when(restTemplate.postForEntity(any(String.class), any(), eq(String.class)))
             .thenThrow(new HttpClientErrorException(HttpStatus.CONFLICT));
 
         try {
-            eclipse.signPublisherAgreement(user);
+            eclipse.signPublisherAgreement(principal);
             fail("Expected an ErrorResultException");
         } catch (ErrorResultException exc) {
             assertThat(exc.getMessage()).isEqualTo("A publisher agreement is already present for user test.");
@@ -224,46 +186,66 @@ public class EclipseServiceTest {
 
     @Test
     public void testRevokePublisherAgreement() throws Exception {
-        var user = mockUser();
-        var eclipseData = new EclipseData();
-        user.setEclipseData(eclipseData);
-        eclipseData.personId = "test";
-        eclipseData.publisherAgreement = new EclipseData.PublisherAgreement();
-        eclipseData.publisherAgreement.isActive = true;
+        var userId = "6d773836-bb12-11ec-8422-0242ac120002";
+        var agreement = new PublisherAgreement();
+        agreement.setUserId(userId);
+        agreement.setPersonId("test");
+        agreement.setActive(true);
+        Mockito.when(repositories.findPublisherAgreement(userId)).thenReturn(agreement);
+        Mockito.when(keycloak.getEclipseUserName(userId)).thenReturn("test");
+        Mockito.when(keycloak.getEclipseToken(userId)).thenReturn("12345");
 
-        eclipse.revokePublisherAgreement(user, null);
-
-        assertThat(user.getEclipseData().publisherAgreement.isActive).isFalse();
+        eclipse.revokePublisherAgreement(userId, null);
+        assertThat(agreement.isActive()).isFalse();
     }
 
     @Test
     public void testRevokePublisherAgreementByAdmin() throws Exception {
-        var user = mockUser();
-        var eclipseData = new EclipseData();
-        user.setEclipseData(eclipseData);
-        eclipseData.personId = "test";
-        eclipseData.publisherAgreement = new EclipseData.PublisherAgreement();
-        eclipseData.publisherAgreement.isActive = true;
-        var admin = new UserData();
-        admin.setLoginName("admin");
-        admin.setEclipseToken(new AuthToken());
-        admin.getEclipseToken().accessToken = "67890";
-        Mockito.when(tokens.getActiveToken(admin, "eclipse"))
-            .thenReturn(admin.getEclipseToken());
+        var agreement = new PublisherAgreement();
+        agreement.setPersonId("test");
+        agreement.setActive(true);
 
-        eclipse.revokePublisherAgreement(user, admin);
+        var userId = "6d773836-bb12-11ec-8422-0242ac120002";
+        Mockito.when(keycloak.getEclipseUserName(userId)).thenReturn(agreement.getPersonId());
+        Mockito.when(repositories.findPublisherAgreement(userId)).thenReturn(agreement);
 
-        assertThat(user.getEclipseData().publisherAgreement.isActive).isFalse();
+        var adminId = "14b26f34-bbe1-11ec-8422-0242ac120002";
+        Mockito.when(keycloak.getEclipseToken(adminId)).thenReturn("67890");
+        eclipse.revokePublisherAgreement(userId, adminId);
+        assertThat(agreement.isActive()).isFalse();
     }
 
-    private UserData mockUser() {
-        var user = new UserData();
-        user.setLoginName("test");
-        user.setEclipseToken(new AuthToken());
-        user.getEclipseToken().accessToken = "12345";
-        Mockito.when(tokens.getActiveToken(user, "eclipse"))
-            .thenReturn(user.getEclipseToken());
-        return user;
+    private Principal mockPrincipal() {
+        var userId = "6d773836-bb12-11ec-8422-0242ac120002";
+        var account = new OidcKeycloakAccount() {
+
+            @Override
+            public KeycloakSecurityContext getKeycloakSecurityContext() {
+                var token = new AccessToken();
+                token.setSubject(userId);
+                token.setPreferredUsername("test");
+                token.setRealmAccess(new AccessToken.Access().addRole("user"));
+                token.setName("Test User");
+                token.setOtherClaims("avatar_url", "avatar.png");
+                token.setOtherClaims("homepage", "homepage.com");
+                return new KeycloakSecurityContext(null, token, null, null);
+            }
+
+            @Override
+            public Principal getPrincipal() {
+                return () -> "test";
+            }
+
+            @Override
+            public Set<String> getRoles() {
+                return Set.of("user");
+            }
+        };
+
+        var token = new KeycloakAuthenticationToken(account, false);
+        Mockito.when(keycloak.getEclipseToken(token)).thenReturn("12345");
+        Mockito.when(keycloak.getEclipseUserName(userId)).thenReturn("test");
+        return token;
     }
 
     private ResponseEntity<String> mockProfileResponse() throws IOException {
@@ -294,6 +276,11 @@ public class EclipseServiceTest {
         @Bean
         EclipseService eclipseService() {
             return new EclipseService();
+        }
+
+        @Bean
+        JsonService jsonService() {
+            return new JsonService();
         }
 
         @Bean

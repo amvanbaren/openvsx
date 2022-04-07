@@ -13,11 +13,12 @@ spring:
     jdbc:
       initialize-schema: never
 
-  security:
-      oauth2:
-        client:
-          registration:
-            github:
-              client-id: dummy-client-id
-              client-secret: dummy-client-secret
-
+keycloak:
+  realm: TestRealm
+  auth-server-url: http://localhost:9090
+  ssl-required: external
+  resource: test-server
+  bearer-only: true
+  credentials:
+    secret: dummy-secret
+  use-resource-role-mappings: false

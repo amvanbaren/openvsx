@@ -8,38 +8,52 @@
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
 
-import React, { FunctionComponent, useState, useContext } from 'react';
+import React, { FunctionComponent, useEffect, useState, useContext } from 'react';
 import {
-    Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Typography, Link
+    Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Typography
 } from '@material-ui/core';
-import { createAbsoluteURL } from '../../utils';
 import { ButtonWithProgress } from '../../components/button-with-progress';
 import { PublisherInfo, isError } from '../../extension-registry-types';
 import { MainContext } from '../../context';
 import { UpdateContext } from './publisher-admin';
 
-export const PublisherRevokeDialog: FunctionComponent<PublisherRevokeDialog.Props> = props => {
-    const { user, service, handleError } = useContext(MainContext);
+export const PublisherRevokeDialog: FunctionComponent<PublisherRevokeDialog.Props> = (props) => {
+    const { service, handleError } = useContext(MainContext);
     const updateContext = useContext(UpdateContext);
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [working, setWorking] = useState(false);
+    const [activeEclipseToken, setActiveEclipseToken] = useState(false);
 
-    if (props.publisherInfo.user.publisherAgreement
-            && !(user && user.additionalLogins && user.additionalLogins.find(login => login.provider === 'eclipse'))) {
+    const hasActiveEclipseToken = async () => {
+        const activeEclipseAccessToken = await service.getUserActiveEclipseAccessToken();
+        setActiveEclipseToken(!isError(activeEclipseAccessToken));
+    };
+  
+    useEffect(() => {
+        hasActiveEclipseToken();
+    }, []);
+
+    const loginWithEclipse = async () => {
+        await service.login({
+            redirectUri: window.location.href,
+            prompt: 'login',
+            idpHint: 'eclipse'
+        });
+    };
+
+    if (props.publisherInfo.user.publisherAgreement && !activeEclipseToken) {
         // If a publisher agreement is required, the admin must be logged in with Eclipse to revoke it
-        return <Link href={createAbsoluteURL([service.serverUrl, 'oauth2', 'authorization', 'eclipse'])}>
-            <Button variant='contained' color='secondary'>
-                Log in with Eclipse
-            </Button>
-        </Link>;
+        <Button variant='contained' color='secondary' onClick={loginWithEclipse}>
+            Log in with Eclipse
+        </Button>;
     }
 
     const doRevoke = async () => {
         try {
             setWorking(true);
             const user = props.publisherInfo.user;
-            const result = await service.admin.revokePublisherContributions(user.provider!, user.loginName);
+            const result = await service.admin.revokePublisherContributions(user.userName);
             if (isError(result)) {
                 throw result;
             }
@@ -72,7 +86,7 @@ export const PublisherRevokeDialog: FunctionComponent<PublisherRevokeDialog.Prop
                         {
                             !tokenCount && !extensionCount && !hasAgreement ?
                             <>
-                                Publisher {props.publisherInfo.user.loginName} currently has no contributions to revoke.
+                                Publisher {props.publisherInfo.user.userName} currently has no contributions to revoke.
                                 Send the request anyway?
                             </>
                             :
@@ -81,7 +95,7 @@ export const PublisherRevokeDialog: FunctionComponent<PublisherRevokeDialog.Prop
                                 <ul>
                                     {
                                         tokenCount > 0 ?
-                                        <li>Deactivate {tokenCount} access token{tokenCount > 1 ? 's' : ''} of {props.publisherInfo.user.loginName}</li>
+                                        <li>Deactivate {tokenCount} access token{tokenCount > 1 ? 's' : ''} of {props.publisherInfo.user.userName}</li>
                                         : null
                                     }
                                     {
@@ -91,7 +105,7 @@ export const PublisherRevokeDialog: FunctionComponent<PublisherRevokeDialog.Prop
                                     }
                                     {
                                         hasAgreement ?
-                                        <li>Revoke the Publisher Agreement of {props.publisherInfo.user.loginName}</li>
+                                        <li>Revoke the Publisher Agreement of {props.publisherInfo.user.userName}</li>
                                         : null
                                     }
                                 </ul>

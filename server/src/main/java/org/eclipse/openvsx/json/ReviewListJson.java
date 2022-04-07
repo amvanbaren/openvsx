@@ -26,12 +26,6 @@ import io.swagger.annotations.ApiModelProperty;;
 @JsonInclude(Include.NON_NULL)
 public class ReviewListJson extends ResultJson {
 
-    public static ReviewListJson error(String message) {
-        var info = new ReviewListJson();
-        info.error = message;
-        return info;
-    }
-
     @ApiModelProperty(hidden = true)
     @NotNull
     public String postUrl;

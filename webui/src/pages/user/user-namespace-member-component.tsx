@@ -57,9 +57,9 @@ class UserNamespaceMemberComponent extends React.Component<UserNamespaceMember.P
     render(): React.ReactNode {
         const memberUser = this.props.member.user;
         const contextUser = this.context.user;
-        return <Box key={'member:' + memberUser.loginName} p={2} display='flex' alignItems='center'>
+        return <Box key={'member:' + memberUser.userName} p={2} display='flex' alignItems='center'>
             <Box alignItems='center' overflow='auto' width='33%'>
-                <Typography classes={{ root: this.props.classes.memberName }}>{memberUser.loginName}</Typography>
+                <Typography classes={{ root: this.props.classes.memberName }}>{memberUser.userName}</Typography>
                 {memberUser.fullName ? <Typography variant='body2'>{memberUser.fullName}</Typography> : ''}
             </Box>
             {
@@ -101,7 +101,7 @@ class UserNamespaceMemberComponent extends React.Component<UserNamespaceMember.P
 }
 
 function equalUser(user1: UserData | undefined, user2: UserData | undefined) {
-    return user1?.loginName === user2?.loginName && user1?.provider === user2?.provider;
+    return user1?.userName === user2?.userName;
 }
 
 export namespace UserNamespaceMember {

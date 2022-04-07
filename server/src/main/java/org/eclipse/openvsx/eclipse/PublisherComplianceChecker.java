@@ -10,13 +10,15 @@
 package org.eclipse.openvsx.eclipse;
 
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.persistence.EntityManager;
 
 import org.eclipse.openvsx.ExtensionService;
 import org.eclipse.openvsx.entities.Extension;
 import org.eclipse.openvsx.entities.PersonalAccessToken;
-import org.eclipse.openvsx.entities.UserData;
+import org.eclipse.openvsx.keycloak.KeycloakService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.slf4j.Logger;
@@ -25,7 +27,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.data.util.Streamable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -47,42 +48,52 @@ public class PublisherComplianceChecker {
     ExtensionService extensions;
 
     @Autowired
-    EclipseService eclipseService;
+    EclipseService eclipse;
+
+    @Autowired
+    KeycloakService keycloak;
 
     @Value("${ovsx.eclipse.check-compliance-on-start:false}")
     boolean checkCompliance;
 
     @EventListener
     public void checkPublishers(ApplicationStartedEvent event) {
-        if (!checkCompliance || !eclipseService.isActive())
+        if (!checkCompliance || !eclipse.isActive())
             return;
 
-        repositories.findAllUsers().forEach(user -> {
-            var accessTokens = repositories.findAccessTokens(user);
-            if (!accessTokens.isEmpty() && !isCompliant(user)) {
+        var accessTokensByUserId = repositories.findAllAccessTokens().stream()
+                .collect(Collectors.groupingBy(PersonalAccessToken::getUserId));
+
+        for(var entry : accessTokensByUserId.entrySet()) {
+            var userId = entry.getKey();
+            var accessTokens = entry.getValue();
+            if(!entry.getValue().isEmpty() && !isCompliant(userId)) {
                 // Found a non-compliant publisher: deactivate all extension versions
                 transactions.<Void>execute(status -> {
-                    deactivateExtensions(accessTokens);
+                    deactivateExtensions(accessTokens, userId);
                     return null;
                 });
             }
-        });
+        }
     }
 
-    private boolean isCompliant(UserData user) {
+    private boolean isCompliant(String userId) {
         // Users without authentication provider have been created directly in the DB,
         // so we skip the agreement check in this case.
-        if (user.getProvider() == null) {
+        if(keycloak.getUserRoles(userId).contains("skip-publisher-agreement")) {
             return true;
         }
-        var eclipseData = user.getEclipseData();
-        if (eclipseData == null || eclipseData.personId == null) {
+
+        var userName = keycloak.getEclipseUserName(userId);
+        if (userName == null) {
             // The user has never logged in with Eclipse
             return false;
         }
-        if (eclipseData.publisherAgreement == null || !eclipseData.publisherAgreement.isActive) {
+
+        var agreement = repositories.findPublisherAgreement(userId);
+        if (agreement == null || !agreement.isActive()) {
             // We don't have any active PA in our DB, let's check their Eclipse profile
-            var profile = eclipseService.getPublicProfile(eclipseData.personId);
+            var profile = eclipse.getPublicProfile(userName);
             if (profile.publisherAgreements == null || profile.publisherAgreements.openVsx == null
                     || profile.publisherAgreements.openVsx.version == null) {
                 return false;
@@ -91,7 +102,7 @@ public class PublisherComplianceChecker {
         return true;
     }
 
-    private void deactivateExtensions(Streamable<PersonalAccessToken> accessTokens) {
+    private void deactivateExtensions(List<PersonalAccessToken> accessTokens, String userId) {
         var affectedExtensions = new LinkedHashSet<Extension>();
         for (var accessToken : accessTokens) {
             var versions = repositories.findVersionsByAccessToken(accessToken, true);
@@ -100,7 +111,8 @@ public class PublisherComplianceChecker {
                 entityManager.merge(version);
                 var extension = version.getExtension();
                 affectedExtensions.add(extension);
-                logger.info("Deactivated: " + accessToken.getUser().getLoginName() + " - "
+                var userName = keycloak.getEclipseUserName(userId);
+                logger.info("Deactivated: " + userName + " - "
                         + extension.getNamespace().getName() + "." + extension.getName() + " " + version.getVersion()
                         + (TargetPlatform.isUniversal(version) ? "" : " (" + version.getTargetPlatform() + ")"));
             }

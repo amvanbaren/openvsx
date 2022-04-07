@@ -9,15 +9,13 @@
  ********************************************************************************/
 package org.eclipse.openvsx.dto;
 
-import java.util.Objects;
-
 public class NamespaceMembershipDTO {
     private final long id;
     private final String role;
     private final long namespaceId;
-    private final long userId;
+    private final String userId;
 
-    public NamespaceMembershipDTO(long id, String role, long namespaceId, long userId) {
+    public NamespaceMembershipDTO(long id, String role, long namespaceId, String userId) {
         this.id = id;
         this.role = role;
         this.namespaceId = namespaceId;
@@ -36,7 +34,7 @@ public class NamespaceMembershipDTO {
         return namespaceId;
     }
 
-    public long getUserId() {
+    public String getUserId() {
         return userId;
     }
 }

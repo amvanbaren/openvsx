@@ -119,7 +119,7 @@ class ExtensionDetailReviewsComponent extends React.Component<ExtensionDetailRev
             return <ButtonWithProgress
                     working={this.state.revoked}
                     onClick={this.handleRevokeButton}
-                    title={`Revoke review written by ${this.context.user.loginName} on ${localTime}`} >
+                    title={`Revoke review written by ${this.context.user.userName} on ${localTime}`} >
                 Revoke my Review
             </ButtonWithProgress>;
         } else {
@@ -146,7 +146,7 @@ class ExtensionDetailReviewsComponent extends React.Component<ExtensionDetailRev
     }
 
     protected renderReview(r: ExtensionReview): React.ReactNode {
-        return <React.Fragment key={r.user.loginName + r.timestamp}>
+        return <React.Fragment key={r.user.userName + r.timestamp}>
             <Box my={2}>
                 <Box display='flex'>
                     {
@@ -161,10 +161,10 @@ class ExtensionDetailReviewsComponent extends React.Component<ExtensionDetailRev
                         {
                             r.user.homepage ?
                             <Link href={r.user.homepage} className={this.props.classes.link}>
-                                {r.user.loginName}
+                                {r.user.userName}
                             </Link>
                             :
-                            r.user.loginName
+                            r.user.userName
                         }
                     </Typography>
                 </Box>

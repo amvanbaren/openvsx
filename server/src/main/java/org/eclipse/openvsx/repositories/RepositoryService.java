@@ -30,7 +30,6 @@ public class RepositoryService {
     @Autowired ExtensionVersionRepository extensionVersionRepo;
     @Autowired FileResourceRepository fileResourceRepo;
     @Autowired ExtensionReviewRepository extensionReviewRepo;
-    @Autowired UserDataRepository userDataRepo;
     @Autowired NamespaceMembershipRepository membershipRepo;
     @Autowired PersonalAccessTokenRepository tokenRepo;
     @Autowired PersistedLogRepository persistedLogRepo;
@@ -42,6 +41,7 @@ public class RepositoryService {
     @Autowired AdminStatisticsRepository adminStatisticsRepo;
     @Autowired AdminStatisticCalculationsRepository adminStatisticCalculationsRepo;
     @Autowired ExtractResourcesMigrationItemRepository extractResourcesMigrationItemRepo;
+    @Autowired PublisherAgreementRepository publisherAgreementRepo;
 
     public Namespace findNamespace(String name) {
         return namespaceRepo.findByNameIgnoreCase(name);
@@ -179,36 +179,20 @@ public class RepositoryService {
         return extensionReviewRepo.findByExtension(extension);
     }
 
-    public Streamable<ExtensionReview> findActiveReviews(Extension extension, UserData user) {
-        return extensionReviewRepo.findByExtensionAndUserAndActiveTrue(extension, user);
+    public Streamable<ExtensionReview> findActiveReviews(Extension extension, String userId) {
+        return extensionReviewRepo.findByExtensionAndUserIdAndActiveTrue(extension, userId);
     }
 
     public long countActiveReviews(Extension extension) {
         return extensionReviewRepo.countByExtensionAndActiveTrue(extension);
     }
 
-    public UserData findUserByLoginName(String provider, String loginName) {
-        return userDataRepo.findByProviderAndLoginName(provider, loginName);
+    public NamespaceMembership findMembership(String userId, Namespace namespace) {
+        return membershipRepo.findByUserIdAndNamespace(userId, namespace);
     }
 
-    public Streamable<UserData> findUsersByLoginNameStartingWith(String loginNameStart) {
-        return userDataRepo.findByLoginNameStartingWith(loginNameStart);
-    }
-
-    public Streamable<UserData> findAllUsers() {
-        return userDataRepo.findAll();
-    }
-
-    public long countUsers() {
-        return userDataRepo.count();
-    }
-
-    public NamespaceMembership findMembership(UserData user, Namespace namespace) {
-        return membershipRepo.findByUserAndNamespace(user, namespace);
-    }
-
-    public long countMemberships(UserData user, Namespace namespace) {
-        return membershipRepo.countByUserAndNamespace(user, namespace);
+    public long countMemberships(String userId, Namespace namespace) {
+        return membershipRepo.countByUserIdAndNamespace(userId, namespace);
     }
 
     public Streamable<NamespaceMembership> findMemberships(Namespace namespace, String role) {
@@ -219,16 +203,20 @@ public class RepositoryService {
         return membershipRepo.countByNamespaceAndRoleIgnoreCase(namespace, role);
     }
 
-    public Streamable<NamespaceMembership> findMemberships(UserData user, String role) {
-        return membershipRepo.findByUserAndRoleIgnoreCaseOrderByNamespaceName(user, role);
+    public Streamable<NamespaceMembership> findMemberships(String userId, String role) {
+        return membershipRepo.findByUserIdAndRoleIgnoreCaseOrderByNamespaceName(userId, role);
     }
 
     public Streamable<NamespaceMembership> findMemberships(Namespace namespace) {
         return membershipRepo.findByNamespace(namespace);
     }
 
-    public Streamable<PersonalAccessToken> findAccessTokens(UserData user) {
-        return tokenRepo.findByUser(user);
+    public Streamable<PersonalAccessToken> findAllAccessTokens() {
+        return tokenRepo.findAll();
+    }
+
+    public Streamable<PersonalAccessToken> findAccessTokens(String userId) {
+        return tokenRepo.findByUserId(userId);
     }
 
     public PersonalAccessToken findAccessToken(String value) {
@@ -342,8 +330,12 @@ public class RepositoryService {
         return extensionVersionRepo.findByVersionAndExtensionNameIgnoreCaseAndExtensionNamespaceNameIgnoreCase(version, extensionName, namespaceName);
     }
 
-    public Streamable<ExtensionVersion> findVersions(UserData user) {
-        return extensionVersionRepo.findByPublishedWithUser(user);
+    public PublisherAgreement findPublisherAgreement(String userId) {
+        return publisherAgreementRepo.findByUserId(userId);
+    }
+
+    public Streamable<ExtensionVersion> findVersions(String userId) {
+        return extensionVersionRepo.findByPublishedWithUserId(userId);
     }
 
     public Streamable<ExtractResourcesMigrationItem> findNotMigratedResources() {

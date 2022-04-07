@@ -25,24 +25,6 @@ import io.swagger.annotations.ApiModelProperty;;
 @JsonInclude(Include.NON_NULL)
 public class ResultJson {
 
-    public static ResultJson success(String message) {
-        var result = new ResultJson();
-        result.success = message;
-        return result;
-    }
-
-    public static ResultJson warning(String message) {
-        var result = new ResultJson();
-        result.warning = message;
-        return result;
-    }
-
-    public static ResultJson error(String message) {
-        var result = new ResultJson();
-        result.error = message;
-        return result;
-    }
-
     @ApiModelProperty("Indicates success of the operation (omitted if a more specific result type is returned)")
     public String success;
 

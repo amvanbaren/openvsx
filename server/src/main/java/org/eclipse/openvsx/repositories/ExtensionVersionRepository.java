@@ -9,7 +9,6 @@
  ********************************************************************************/
 package org.eclipse.openvsx.repositories;
 
-import org.eclipse.openvsx.entities.UserData;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.util.Streamable;
@@ -34,8 +33,6 @@ public interface ExtensionVersionRepository extends Repository<ExtensionVersion,
 
     Streamable<ExtensionVersion> findByVersionAndExtensionNameIgnoreCaseAndExtensionNamespaceNameIgnoreCase(String version, String extensionName, String namespace);
 
-    Streamable<ExtensionVersion> findByPublishedWithUser(UserData user);
-
     Streamable<ExtensionVersion> findByPublishedWith(PersonalAccessToken publishedWith);
 
     Streamable<ExtensionVersion> findByPublishedWithAndActive(PersonalAccessToken publishedWith, boolean active);
@@ -45,6 +42,10 @@ public interface ExtensionVersionRepository extends Repository<ExtensionVersion,
 
     @Query("select ev from ExtensionVersion ev where concat(',', ev.dependencies, ',') like concat('%,', ?1, ',%')")
     Streamable<ExtensionVersion> findByDependencies(String extensionId);
+    Streamable<ExtensionVersion> findByPublishedWithUserId(String userId);
+
+    @Query("select ev.version from ExtensionVersion ev where ev.extension = ?1 order by ev.timestamp desc")
+    Streamable<String> getVersionStrings(Extension extension);
 
     @Query("select min(ev.timestamp) from ExtensionVersion ev")
     LocalDateTime getOldestTimestamp();

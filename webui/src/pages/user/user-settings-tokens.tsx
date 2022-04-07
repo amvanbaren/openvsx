@@ -77,7 +77,7 @@ class UserSettingsTokensComponent extends React.Component<UserSettingsTokensComp
             return;
         }
         try {
-            const tokens = await this.context.service.getAccessTokens(this.context.user);
+            const tokens = await this.context.service.getAccessTokens();
             this.setState({ tokens, loading: false });
         } catch (err) {
             this.context.handleError(err);

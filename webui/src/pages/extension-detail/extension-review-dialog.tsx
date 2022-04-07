@@ -114,7 +114,7 @@ class ExtensionReviewDialogComponent extends React.Component<ExtensionReviewDial
                 <DialogTitle>{this.props.extension.displayName || this.props.extension.name} Review</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
-                        Your review will be posted publicly as {this.context.user.loginName}
+                        Your review will be posted publicly as {this.context.user.userName}
                     </DialogContentText>
                     <div className={this.props.classes.stars}>
                         <ExtensionRatingStarSetter ref={(ref: any) => this.starSetter = ref} />

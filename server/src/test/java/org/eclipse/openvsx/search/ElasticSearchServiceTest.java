@@ -252,11 +252,11 @@ public class ElasticSearchServiceTest {
         extVer.setActive(true);
         extVer.setExtension(extension);
         extension.getVersions().add(extVer);
-        var user = new UserData();
+        var userId = "test_user";
         var token = new PersonalAccessToken();
-        token.setUser(user);
+        token.setUserId(userId);
         extVer.setPublishedWith(token);
-        Mockito.when(repositories.countMemberships(user, namespace))
+        Mockito.when(repositories.countMemberships(userId, namespace))
                 .thenReturn(isUnrelated ? 0l : 1l);
         return extension;
     }

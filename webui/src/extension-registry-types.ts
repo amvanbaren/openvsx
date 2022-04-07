@@ -141,23 +141,19 @@ export interface ExtensionReviewList {
 }
 
 export interface UserData {
-    loginName: string;
-    tokensUrl: UrlString;
-    createTokenUrl: UrlString;
+    userName: string;
     fullName?: string;
     avatarUrl?: UrlString;
     homepage?: string;
-    provider?: string;
     role?: string;
     publisherAgreement?: {
         status: 'none' | 'signed' | 'outdated';
         timestamp?: TimestampString;
-    },
-    additionalLogins?: UserData[];
+    }
 }
 
 export function isEqualUser(u1: UserData, u2: UserData): boolean {
-    return u1.loginName === u2.loginName;
+    return u1.userName === u2.userName;
 }
 
 export interface PersonalAccessToken {
@@ -185,11 +181,6 @@ export type ExtensionCategory =
     'Machine Learning' |
     'Visualization' |
     'Notebooks';
-
-export interface CsrfTokenJson {
-    value: string;
-    header: string;
-}
 
 export interface NamespaceMembership {
     namespace: string;

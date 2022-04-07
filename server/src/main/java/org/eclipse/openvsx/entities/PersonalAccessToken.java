@@ -10,20 +10,13 @@
 package org.eclipse.openvsx.entities;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
-
-import org.eclipse.openvsx.json.AccessTokenJson;
-import org.eclipse.openvsx.util.TimeUtil;
 
 @Entity
 @Table(uniqueConstraints = { @UniqueConstraint(columnNames = "value") })
@@ -33,9 +26,7 @@ public class PersonalAccessToken {
     @GeneratedValue
     long id;
 
-    @ManyToOne
-    @JoinColumn(name = "user_data")
-    UserData user;
+    String userId;
 
     @Column(length = 64)
     String value;
@@ -49,25 +40,6 @@ public class PersonalAccessToken {
     @Column(length = 2048)
     String description;
 
-    @OneToMany(mappedBy = "publishedWith")
-    List<ExtensionVersion> publishedVersions;
-
-
-    /**
-     * Convert to a JSON object.
-     */
-    public AccessTokenJson toAccessTokenJson() {
-        var json = new AccessTokenJson();
-        json.id = this.getId();
-        // The value is not included: it is displayed only when the token is created
-        if (this.getCreatedTimestamp() != null)
-            json.createdTimestamp = TimeUtil.toUTCString(this.getCreatedTimestamp());
-        if (this.getAccessedTimestamp() != null)
-            json.accessedTimestamp = TimeUtil.toUTCString(this.getAccessedTimestamp());
-        json.description = this.getDescription();
-        return json;
-    }
-
     public long getId() {
         return id;
     }
@@ -76,12 +48,12 @@ public class PersonalAccessToken {
 		this.id = id;
 	}
 
-    public UserData getUser() {
-        return user;
+    public String getUserId() {
+        return userId;
     }
 
-    public void setUser(UserData user) {
-        this.user = user;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public String getValue() {

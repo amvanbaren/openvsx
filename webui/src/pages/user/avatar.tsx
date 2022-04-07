@@ -12,7 +12,6 @@ import * as React from 'react';
 import { withStyles, createStyles } from '@material-ui/styles';
 import { Theme, WithStyles, Avatar, Menu, Typography, MenuItem, Link, Divider, IconButton } from '@material-ui/core';
 import { Link as RouteLink } from 'react-router-dom';
-import { isError } from '../../extension-registry-types';
 import { UserSettingsRoutes } from './user-settings';
 import { AdminDashboardRoutes } from '../admin-dashboard/admin-dashboard';
 import { MainContext } from '../../context';
@@ -54,26 +53,15 @@ class UserAvatarComponent extends React.Component<UserAvatarComponent.Props, Use
         };
     }
 
-    componentDidMount() {
-        this.updateCsrf();
-    }
-
-    protected async updateCsrf() {
-        try {
-            const csrfToken = await this.context.service.getCsrfToken();
-            if (!isError(csrfToken)) {
-                this.setState({ csrf: csrfToken.value });
-            }
-        } catch (err) {
-            this.context.handleError(err);
-        }
-    }
-
     protected readonly handleAvatarClick = () => {
         this.setState({ open: !this.state.open });
     };
     protected readonly handleClose = () => {
         this.setState({ open: false });
+    };
+
+    protected readonly logout = () => {
+        this.context.service.logout();
     };
 
     render(): React.ReactNode {
@@ -83,13 +71,13 @@ class UserAvatarComponent extends React.Component<UserAvatarComponent.Props, Use
         }
         return <React.Fragment>
             <IconButton
-                title={`Logged in as ${user.loginName}`}
+                title={`Logged in as ${user.userName}`}
                 aria-label='User Info'
                 onClick={this.handleAvatarClick}
                 ref={ref => this.avatarButton = ref} >
                 <Avatar
                     src={user.avatarUrl}
-                    alt={user.loginName}
+                    alt={user.userName}
                     variant='rounded'
                     classes={{ root: this.props.classes.avatar }} />
             </IconButton>
@@ -104,7 +92,7 @@ class UserAvatarComponent extends React.Component<UserAvatarComponent.Props, Use
                             Logged in as
                         </Typography>
                         <Typography variant='overline' color='textPrimary'>
-                            {user.loginName}
+                            {user.userName}
                         </Typography>
                     </Link>
                 </MenuItem>
@@ -129,14 +117,11 @@ class UserAvatarComponent extends React.Component<UserAvatarComponent.Props, Use
                         ''
                 }
                 <MenuItem className={this.props.classes.menuItem}>
-                    <form method='post' action={this.context.service.getLogoutUrl()}>
-                        {this.state.csrf ? <input name='_csrf' type='hidden' value={this.state.csrf} /> : null}
-                        <button type='submit' className={`${this.props.classes.link} ${this.props.classes.menuButton}`}>
-                            <Typography variant='button' className={this.props.classes.logoutButton}>
-                                Log Out
-                            </Typography>
-                        </button>
-                    </form>
+                    <button type='button' className={`${this.props.classes.link} ${this.props.classes.menuButton}`} onClick={this.logout}>
+                        <Typography variant='button' className={this.props.classes.logoutButton}>
+                            Log Out
+                        </Typography>
+                    </button>
                 </MenuItem>
             </Menu>
         </React.Fragment>;
@@ -149,7 +134,6 @@ export namespace UserAvatarComponent {
 
     export interface State {
         open: boolean;
-        csrf?: string;
     }
 }
 

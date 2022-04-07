@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 import javax.persistence.EntityManager;
 
+import com.c4_soft.springaddons.security.oauth2.test.mockmvc.keycloak.ServletKeycloakAuthUnitTestingSupport;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
@@ -38,12 +39,13 @@ import org.eclipse.openvsx.dto.ExtensionVersionDTO;
 import org.eclipse.openvsx.dto.FileResourceDTO;
 import org.eclipse.openvsx.eclipse.EclipseService;
 import org.eclipse.openvsx.entities.*;
+import org.eclipse.openvsx.json.JsonService;
+import org.eclipse.openvsx.keycloak.KeycloakService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.ExtensionSearch;
 import org.eclipse.openvsx.search.ISearchService;
 import org.eclipse.openvsx.search.SearchUtilService;
-import org.eclipse.openvsx.security.OAuth2UserServices;
-import org.eclipse.openvsx.security.TokenService;
+import org.eclipse.openvsx.security.SecurityConfig;
 import org.eclipse.openvsx.storage.AzureBlobStorageService;
 import org.eclipse.openvsx.storage.AzureDownloadCountService;
 import org.eclipse.openvsx.storage.GoogleCloudStorageService;
@@ -58,37 +60,31 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHitsImpl;
 import org.springframework.data.elasticsearch.core.TotalHitsRelation;
 import org.springframework.data.util.Streamable;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @WebMvcTest(VSCodeAdapter.class)
 @AutoConfigureWebClient
 @MockBean({
-    ClientRegistrationRepository.class, GoogleCloudStorageService.class, AzureBlobStorageService.class,
-    AzureDownloadCountService.class, LockProvider.class, CacheService.class
+    GoogleCloudStorageService.class, AzureBlobStorageService.class, AzureDownloadCountService.class,
+    LockProvider.class, CacheService.class, VSCodeIdService.class, EntityManager.class, EclipseService.class,
+    KeycloakService.class
 })
+@Import({ ServletKeycloakAuthUnitTestingSupport.UnitTestConfig.class, SecurityConfig.class })
 public class VSCodeAdapterTest {
 
     @MockBean
     RepositoryService repositories;
 
     @MockBean
-    VSCodeIdService idService;
-
-    @MockBean
     SearchUtilService search;
-
-    @MockBean
-    EntityManager entityManager;
-
-    @MockBean
-    EclipseService eclipse;
 
     @Autowired
     MockMvc mockMvc;
@@ -599,18 +595,13 @@ public class VSCodeAdapterTest {
         }
 
         @Bean
-        OAuth2UserServices oauth2UserServices() {
-            return new OAuth2UserServices();
-        }
-
-        @Bean
-        TokenService tokenService() {
-            return new TokenService();
-        }
-
-        @Bean
         UserService userService() {
             return new UserService();
+        }
+
+        @Bean
+        JsonService jsonService() {
+            return new JsonService();
         }
 
         @Bean

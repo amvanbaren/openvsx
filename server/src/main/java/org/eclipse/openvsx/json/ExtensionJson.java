@@ -28,12 +28,6 @@ import io.swagger.annotations.ApiModelProperty;
 @JsonInclude(Include.NON_NULL)
 public class ExtensionJson extends ResultJson {
 
-    public static ExtensionJson error(String message) {
-        var info = new ExtensionJson();
-        info.error = message;
-        return info;
-    }
-
     @ApiModelProperty("URL to get metadata of the extension's namespace")
     @NotNull
     public String namespaceUrl;

@@ -8,15 +8,14 @@
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
 
-import React, { FunctionComponent, useContext, useState } from 'react';
+import React, { FunctionComponent, useContext, useEffect, useState } from 'react';
 import {
-    Box, Typography, Paper, Button, makeStyles, Dialog, DialogContent, DialogContentText, Link
+    Box, Typography, Paper, Button, makeStyles, Dialog, DialogContent, DialogContentText
 } from '@material-ui/core';
 import { UserData, isError, ReportedError } from '../../extension-registry-types';
 import { SanitizedMarkdown } from '../../components/sanitized-markdown';
 import { Timestamp } from '../../components/timestamp';
 import { ButtonWithProgress } from '../../components/button-with-progress';
-import { createAbsoluteURL } from '../../utils';
 import { MainContext } from '../../context';
 import CircularProgress from '@material-ui/core/CircularProgress';
 
@@ -35,13 +34,28 @@ export const UserPublisherAgreement: FunctionComponent<UserPublisherAgreement.Pr
     const { service, pageSettings, updateUser, handleError } = useContext(MainContext);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [working, setWorking] = useState(false);
+    const [activeEclipseToken, setActiveEclipseToken] = useState(false);
+
+    const hasActiveEclipseToken = async () => {
+        const activeEclipseAccessToken = await service.getUserActiveEclipseAccessToken();
+        setActiveEclipseToken(!isError(activeEclipseAccessToken));
+    };
+  
+    useEffect(() => {
+        hasActiveEclipseToken();
+    }, []);
+
 
     const signPublisherAgreement = async (): Promise<void> => {
         try {
             setWorking(true);
             const result = await service.signPublisherAgreement();
             if (isError(result)) {
-                throw result;
+                if (result.error === 'No active Eclipse access token') {
+                    loginWithEclipse();
+                } else {
+                    throw result;
+                } 
             }
             updateUser();
             setDialogOpen(false);
@@ -61,6 +75,14 @@ export const UserPublisherAgreement: FunctionComponent<UserPublisherAgreement.Pr
         } else {
             setDialogOpen(true);
         }
+    };
+
+    const loginWithEclipse = async () => {
+        await service.login({
+            redirectUri: window.location.href,
+            prompt: 'login',
+            idpHint: 'eclipse'
+        });
     };
 
     const [agreementText, setAgreementText] = useState('');
@@ -98,7 +120,7 @@ export const UserPublisherAgreement: FunctionComponent<UserPublisherAgreement.Pr
                         }
                     </Typography>
                     :
-                    !user.additionalLogins || !user.additionalLogins.find(login => login.provider === 'eclipse') ?
+                    !activeEclipseToken ?
                         <>
                             <Typography variant='body1'>
                                 You need to sign the Eclipse Foundation Open VSX Publisher Agreement before you can publish
@@ -106,11 +128,9 @@ export const UserPublisherAgreement: FunctionComponent<UserPublisherAgreement.Pr
                                 an Eclipse Foundation account.
                             </Typography>
                             <Box mt={2} display='flex' justifyContent='flex-end'>
-                                <Link href={createAbsoluteURL([service.serverUrl, 'oauth2', 'authorization', 'eclipse'])}>
-                                    <Button variant='outlined' color='secondary'>
-                                        Log in with Eclipse
-                                    </Button>
-                                </Link>
+                                <Button variant='outlined' color='secondary' onClick={loginWithEclipse}>
+                                    Log in with Eclipse
+                                </Button>
                             </Box>
                         </>
                         :

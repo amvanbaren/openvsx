@@ -34,7 +34,7 @@ public class NamespaceMembershipDTORepository {
                     NAMESPACE_MEMBERSHIP.ID,
                     NAMESPACE_MEMBERSHIP.ROLE,
                     NAMESPACE_MEMBERSHIP.NAMESPACE,
-                    NAMESPACE_MEMBERSHIP.USER_DATA
+                    NAMESPACE_MEMBERSHIP.USER_ID
                 )
                 .from(NAMESPACE_MEMBERSHIP)
                 .where(NAMESPACE_MEMBERSHIP.NAMESPACE.in(namespaceIds))

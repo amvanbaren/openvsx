@@ -13,6 +13,7 @@ import * as React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@material-ui/styles';
 import useMediaQuery from '@material-ui/core/useMediaQuery';
+import Keycloak from 'keycloak-js';
 import { ExtensionRegistryService } from '../extension-registry-service';
 import { Main } from '../main';
 import createPageSettings from './page-settings';
@@ -30,7 +31,9 @@ if (serverHost.startsWith('3000-')) {
     // Localhost dev environment
     serverHost = serverHost + ':8080';
 }
-const service = new ExtensionRegistryService(`${location.protocol}//${serverHost}`);
+
+const keycloak = Keycloak(window.location.origin + '/keycloak.json');
+const service = new ExtensionRegistryService(`${location.protocol}//${serverHost}`, keycloak);
 
 const App = () => {
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');

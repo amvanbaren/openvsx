@@ -26,12 +26,6 @@ import io.swagger.annotations.ApiModelProperty;;
 @JsonInclude(Include.NON_NULL)
 public class NamespaceMembershipListJson extends ResultJson {
 
-    public static NamespaceMembershipListJson error(String message) {
-        var result = new NamespaceMembershipListJson();
-        result.error = message;
-        return result;
-    }
-
     @ApiModelProperty("List of memberships")
     @NotNull
     public List<NamespaceMembershipJson> namespaceMemberships;

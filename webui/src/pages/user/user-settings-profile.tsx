@@ -59,7 +59,7 @@ class UserSettingsProfileComponent extends React.Component<UserSettingsProfileCo
             <Grid container className={this.props.classes.profile}>
                 <Grid item>
                     <Typography variant='h5' gutterBottom>Profile</Typography>
-                    <Typography variant='body1'>Login name: {user.loginName}</Typography>
+                    <Typography variant='body1'>Login name: {user.userName}</Typography>
                     <Typography variant='body1'>Full name: {user.fullName}</Typography>
                 </Grid>
                 <Grid item>
@@ -70,7 +70,7 @@ class UserSettingsProfileComponent extends React.Component<UserSettingsProfileCo
                 user.publisherAgreement ? (
                     this.props.isAdmin ?
                     <Typography variant='body1' title={toLocalTime(user.publisherAgreement.timestamp)}>
-                        {user.loginName} {
+                        {user.userName} {
                             user.publisherAgreement.status === 'signed' ?
                             <>has signed</>
                             : user.publisherAgreement.status === 'outdated' ?

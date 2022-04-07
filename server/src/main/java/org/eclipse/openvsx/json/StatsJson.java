@@ -15,12 +15,6 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;;
 @JsonInclude(Include.NON_NULL)
 public class StatsJson extends ResultJson {
 
-    public static StatsJson error(String message) {
-        var user = new StatsJson();
-        user.error = message;
-        return user;
-    }
-
     public long userCount;
 
     public long extensionCount;

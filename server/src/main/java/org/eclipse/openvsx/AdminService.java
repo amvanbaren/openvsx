@@ -19,13 +19,13 @@ import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
 
 import org.apache.jena.ext.com.google.common.collect.Maps;
 import org.eclipse.openvsx.cache.CacheService;
 import org.eclipse.openvsx.eclipse.EclipseService;
 import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.json.*;
+import org.eclipse.openvsx.keycloak.KeycloakService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.SearchUtilService;
 import org.eclipse.openvsx.storage.StorageUtilService;
@@ -61,24 +61,30 @@ public class AdminService {
     EclipseService eclipse;
 
     @Autowired
+    KeycloakService keycloak;
+
+    @Autowired
     StorageUtilService storageUtil;
 
     @Autowired
     CacheService cache;
 
+    @Autowired
+    JsonService json;
+
     @Transactional(rollbackOn = ErrorResultException.class)
-    public ResultJson deleteExtension(String namespaceName, String extensionName, UserData admin)
+    public ResultJson deleteExtension(String namespaceName, String extensionName, String adminId)
             throws ErrorResultException {
         var extension = repositories.findExtension(extensionName, namespaceName);
         if (extension == null) {
             throw new ErrorResultException("Extension not found: " + namespaceName + "." + extensionName,
                     HttpStatus.NOT_FOUND);
         }
-        return deleteExtension(extension, admin);
+        return deleteExtension(extension, adminId);
     }
 
     @Transactional(rollbackOn = ErrorResultException.class)
-    public ResultJson deleteExtension(String namespaceName, String extensionName, String targetPlatform, String version, UserData admin)
+    public ResultJson deleteExtension(String namespaceName, String extensionName, String targetPlatform, String version, String adminId)
             throws ErrorResultException {
         var extVersion = repositories.findVersion(version, targetPlatform, extensionName, namespaceName);
         if (extVersion == null) {
@@ -89,10 +95,10 @@ public class AdminService {
             throw new ErrorResultException(message, HttpStatus.NOT_FOUND);
         }
 
-        return deleteExtension(extVersion, admin);
+        return deleteExtension(extVersion, adminId);
     }
 
-    protected ResultJson deleteExtension(Extension extension, UserData admin) throws ErrorResultException {
+    protected ResultJson deleteExtension(Extension extension, String adminId) throws ErrorResultException {
         var namespace = extension.getNamespace();
         var bundledRefs = repositories.findBundledExtensionsReference(extension);
         if (!bundledRefs.isEmpty()) {
@@ -122,15 +128,15 @@ public class AdminService {
         entityManager.remove(extension);
         search.removeSearchEntry(extension);
 
-        var result = ResultJson.success("Deleted " + namespace.getName() + "." + extension.getName());
-        logAdminAction(admin, result);
+        var result = json.success("Deleted " + namespace.getName() + "." + extension.getName());
+        logAdminAction(adminId, result);
         return result;
     }
 
-    protected ResultJson deleteExtension(ExtensionVersion extVersion, UserData admin) {
+    protected ResultJson deleteExtension(ExtensionVersion extVersion, String adminId) {
         var extension = extVersion.getExtension();
         if (repositories.findVersions(extension).stream().count() == 1) {
-            return deleteExtension(extension, admin);
+            return deleteExtension(extension, adminId);
         }
 
         cache.evictExtensionJsons(extension);
@@ -138,9 +144,9 @@ public class AdminService {
         extension.getVersions().remove(extVersion);
         extensions.updateExtension(extension);
 
-        var result = ResultJson.success("Deleted " + extension.getNamespace().getName() + "." + extension.getName()
+        var result = json.success("Deleted " + extension.getNamespace().getName() + "." + extension.getName()
                 + " " + extVersion.getVersion());
-        logAdminAction(admin, result);
+        logAdminAction(adminId, result);
         return result;
     }
 
@@ -153,100 +159,98 @@ public class AdminService {
     }
 
     @Transactional(rollbackOn = ErrorResultException.class)
-    public ResultJson editNamespaceMember(String namespaceName, String userName, String provider, String role,
-            UserData admin) throws ErrorResultException {
+    public ResultJson editNamespaceMember(String namespaceName, String userName, String role, String adminId) throws ErrorResultException {
         var namespace = repositories.findNamespace(namespaceName);
         if (namespace == null) {
             throw new ErrorResultException("Namespace not found: " + namespaceName);
         }
-        var user = repositories.findUserByLoginName(provider, userName);
-        if (user == null) {
-            throw new ErrorResultException("User not found: " + provider + "/" + userName);
+
+        var userId = keycloak.findUserIdByUserName(userName);
+        if (userId == null) {
+            throw new ErrorResultException("User not found: " + userName);
         }
 
-        ResultJson result;
-        if (role.equals("remove")) {
-            result = users.removeNamespaceMember(namespace, user);
-        } else {
-            result = users.addNamespaceMember(namespace, user, role);
-        }
+        var result = role.equals("remove")
+                ? users.removeNamespaceMember(namespace, userId, userName)
+                : users.addNamespaceMember(namespace, userId, userName, role);
+
         for (var extension : repositories.findActiveExtensions(namespace)) {
             search.updateSearchEntry(extension);
         }
-        logAdminAction(admin, result);
+
+        logAdminAction(adminId, result);
         return result;
     }
 
     @Transactional(rollbackOn = ErrorResultException.class)
-    public ResultJson createNamespace(NamespaceJson json) {
-        var namespaceIssue = validator.validateNamespace(json.name);
+    public ResultJson createNamespace(NamespaceJson namespaceJson) {
+        var namespaceIssue = validator.validateNamespace(namespaceJson.name);
         if (namespaceIssue.isPresent()) {
             throw new ErrorResultException(namespaceIssue.get().toString());
         }
-        var namespace = repositories.findNamespace(json.name);
+        var namespace = repositories.findNamespace(namespaceJson.name);
         if (namespace != null) {
             throw new ErrorResultException("Namespace already exists: " + namespace.getName());
         }
         namespace = new Namespace();
-        namespace.setName(json.name);
+        namespace.setName(namespaceJson.name);
         entityManager.persist(namespace);
-        return ResultJson.success("Created namespace " + namespace.getName());
+        return json.success("Created namespace " + namespace.getName());
     }
     
-    public UserPublishInfoJson getUserPublishInfo(String provider, String loginName) {
-        var user = repositories.findUserByLoginName(provider, loginName);
-        if (user == null) {
-            throw new ErrorResultException("User not found: " + loginName, HttpStatus.NOT_FOUND);
+    public UserPublishInfoJson getUserPublishInfo(String userName) {
+        var userId = keycloak.findUserIdByUserName(userName);
+        if (userId == null) {
+            throw new ErrorResultException("User not found: " + userName, HttpStatus.NOT_FOUND);
         }
+
+        var versions = repositories.findVersions(userId);
+        var activeAccessTokens = versions.stream()
+                .map(ExtensionVersion::getPublishedWith)
+                .distinct()
+                .filter(PersonalAccessToken::isActive)
+                .count();
 
         var serverUrl = UrlUtil.getBaseUrl();
-        var versionJsons = new ArrayList<ExtensionJson>();
-        var activeAccessTokenNum = 0;
-        var accessTokens = repositories.findAccessTokens(user);
-        for (var accessToken : accessTokens) {
-            if (accessToken.isActive()) {
-                activeAccessTokenNum++;
-            }
-            var versions = repositories.findVersionsByAccessToken(accessToken);
-            for (var version : versions) {
-                var json = version.toExtensionJson();
-                json.preview = version.getExtension().getLatest().isPreview();
-                json.active = version.isActive();
-                json.files = Maps.newLinkedHashMapWithExpectedSize(6);
-                storageUtil.addFileUrls(version, serverUrl, json.files, FileResource.DOWNLOAD, FileResource.MANIFEST,
-                        FileResource.ICON, FileResource.README, FileResource.LICENSE, FileResource.CHANGELOG);
-                versionJsons.add(json);
-            }
-        }
-        versionJsons.sort(
-            Comparator.comparing((ExtensionJson j) -> j.namespace)
-                      .thenComparing(j -> j.name)
-                      .thenComparing(j -> j.version)
-        );
+        var versionJsons = versions.stream()
+                .map(version -> {
+                    var versionJson = json.toExtensionJson(version);
+                    versionJson.preview = version.getExtension().getLatest().isPreview();
+                    versionJson.active = version.isActive();
+                    versionJson.files = Maps.newLinkedHashMapWithExpectedSize(6);
+                    storageUtil.addFileUrls(version, serverUrl, versionJson.files, FileResource.DOWNLOAD, FileResource.MANIFEST,
+                            FileResource.ICON, FileResource.README, FileResource.LICENSE, FileResource.CHANGELOG);
 
-        var userPublishInfo = new UserPublishInfoJson();
-        userPublishInfo.user = user.toUserJson();
-        eclipse.enrichUserJson(userPublishInfo.user, user);
-        userPublishInfo.extensions = versionJsons;
-        userPublishInfo.activeAccessTokenNum = activeAccessTokenNum;
-        return userPublishInfo;
+                    return versionJson;
+                })
+                .sorted(Comparator.comparing((ExtensionJson j) -> j.namespace)
+                        .thenComparing(j -> j.name)
+                        .thenComparing(j -> j.version)
+                )
+                .collect(Collectors.toList());
+
+        var userPublishInfoJson = json.toUserPublishInfoJson(userId, Long.valueOf(activeAccessTokens).intValue(), versionJsons);
+        var userJson = keycloak.getUserJson(userId);
+        userPublishInfoJson.user = userJson;
+        eclipse.enrichUserJson(userPublishInfoJson.user, userId);
+        userPublishInfoJson.extensions.forEach(extensionJson -> extensionJson.publishedBy = userJson);
+        return userPublishInfoJson;
     }
 
     @Transactional(rollbackOn = ErrorResultException.class)
-    public ResultJson revokePublisherContributions(String provider, String loginName, UserData admin) {
-        var user = repositories.findUserByLoginName(provider, loginName);
-        if (user == null) {
-            throw new ErrorResultException("User not found: " + loginName, HttpStatus.NOT_FOUND);
+    public ResultJson revokePublisherContributions(String userName, String adminId) {
+        var userId = keycloak.findUserIdByUserName(userName);
+        if (userId == null) {
+            throw new ErrorResultException("User not found: " + userName, HttpStatus.NOT_FOUND);
         }
 
         // Send a DELETE request to the Eclipse publisher agreement API
-        if (eclipse.isActive() && user.getEclipseData() != null
-                && user.getEclipseData().publisherAgreement != null
-                && user.getEclipseData().publisherAgreement.isActive) {
-            eclipse.revokePublisherAgreement(user, admin);
+        var agreement = repositories.findPublisherAgreement(userId);
+        if (eclipse.isActive() && agreement != null && agreement.isActive()) {
+            eclipse.revokePublisherAgreement(userId, adminId);
         }
 
-        var accessTokens = repositories.findAccessTokens(user);
+        var accessTokens = repositories.findAccessTokens(userId);
         var affectedExtensions = new LinkedHashSet<Extension>();
         var deactivatedTokenCount = 0;
         var deactivatedExtensionCount = 0;
@@ -265,32 +269,23 @@ public class AdminService {
                 deactivatedExtensionCount++;
             }
         }
-        
+
         // Update affected extensions
         for (var extension : affectedExtensions) {
             extensions.updateExtension(extension);
         }
 
-        var result = ResultJson.success("Deactivated " + deactivatedTokenCount
-                + " tokens and deactivated " + deactivatedExtensionCount + " extensions of user "
-                + provider + "/" + loginName + "."); 
-        logAdminAction(admin, result);
+        var result = json.success("Deactivated " + deactivatedTokenCount
+                + " tokens and deactivated " + deactivatedExtensionCount + " extensions of user " + userName + ".");
+        logAdminAction(adminId, result);
         return result;
     }
 
-    public UserData checkAdminUser() {
-        var user = users.findLoggedInUser();
-        if (user == null || !UserData.ROLE_ADMIN.equals(user.getRole())) {
-            throw new ErrorResultException("Administration role is required.", HttpStatus.FORBIDDEN);
-        }
-        return user;
-    }
-
     @Transactional
-    public void logAdminAction(UserData admin, ResultJson result) {
+    public void logAdminAction(String adminId, ResultJson result) {
         if (result.success != null) {
             var log = new PersistedLog();
-            log.setUser(admin);
+            log.setUserId(adminId);
             log.setTimestamp(TimeUtil.getCurrentUTC());
             log.setMessage(result.success);
             entityManager.persist(log);

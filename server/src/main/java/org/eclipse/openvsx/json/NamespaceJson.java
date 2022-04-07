@@ -26,12 +26,6 @@ import io.swagger.annotations.ApiModelProperty;;
 @JsonInclude(Include.NON_NULL)
 public class NamespaceJson extends ResultJson {
 
-    public static NamespaceJson error(String message) {
-        var result = new NamespaceJson();
-        result.error = message;
-        return result;
-    }
-
     @ApiModelProperty("Name of the namespace")
     @NotNull
     public String name;

@@ -1,3 +1,14 @@
+logging:
+  level:
+    org:
+      apache:
+        http: DEBUG
+      eclipse:
+        openvsx:
+          security: DEBUG
+      springframework:
+        security: DEBUG
+
 server:
   port: 8080
 
@@ -24,21 +35,19 @@ spring:
     jdbc:
       initialize-schema: never
 
-  security:
-      oauth2:
-        client:
-          registration:
-            eclipse:
-              authorization-grant-type: authorization_code
-              redirect-uri: http://localhost/login/oauth2/code/eclipse
-              scope: openvsx_publisher_agreement, profile
-          provider:
-            eclipse:
-              authorization-uri: https://accounts.eclipse.org/oauth2/authorize
-              token-uri: https://accounts.eclipse.org/oauth2/token
-              user-info-uri: https://accounts.eclipse.org/oauth2/UserInfo
-              user-name-attribute: name
-              user-info-authentication-method: header
+keycloak:
+  realm: OpenVSX
+  auth-server-url: http://localhost:9090
+  ssl-required: external
+  resource: openvsx-server
+  bearer-only: true
+  credentials:
+    secret: QuoCKTvajGjuPhrdMTOUDbTUlZO7xtKV
+  use-resource-role-mappings: false
+keycloak-service:
+    client:
+      id: admin-spring-boot
+      secret: PsS3wdpGpcx0RKWf8LQE0GeMtku8sIis
 
 management:
   health:
@@ -66,3 +75,4 @@ ovsx:
     base-url: https://api.eclipse.org
     publisher-agreement:
       timezone: US/Eastern
+      version: 1

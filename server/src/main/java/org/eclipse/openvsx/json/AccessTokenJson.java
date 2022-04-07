@@ -17,12 +17,6 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;;
 @JsonInclude(Include.NON_NULL)
 public class AccessTokenJson extends ResultJson {
 
-    public static AccessTokenJson error(String message) {
-        var result = new AccessTokenJson();
-        result.error = message;
-        return result;
-    }
-
     public Long id;
 
     @Nullable

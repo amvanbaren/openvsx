@@ -9,6 +9,7 @@
  ********************************************************************************/
 package org.eclipse.openvsx;
 
+import java.security.Principal;
 import java.time.Period;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -20,6 +21,7 @@ import com.google.common.base.Strings;
 import org.eclipse.openvsx.entities.ExtensionVersion;
 import org.eclipse.openvsx.entities.PersistedLog;
 import org.eclipse.openvsx.json.*;
+import org.eclipse.openvsx.keycloak.KeycloakService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.SearchUtilService;
 import org.eclipse.openvsx.util.*;
@@ -36,10 +38,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import static org.eclipse.openvsx.entities.UserData.ROLE_ADMIN;
-
 @RestController
 public class AdminAPI {
+
     @Autowired
     RepositoryService repositories;
 
@@ -52,18 +53,24 @@ public class AdminAPI {
     @Autowired
     SearchUtilService search;
 
+    @Autowired
+    KeycloakService keycloak;
+
+    @Autowired
+    JsonService json;
+
     @GetMapping(
             path = "/admin/report",
             produces = "text/csv"
     )
     public ResponseEntity<String> getReport(
-            @RequestParam("token") String tokenValue,
-            @RequestParam("year") int year,
-            @RequestParam("month") int month
+            @RequestParam String token,
+            @RequestParam int year,
+            @RequestParam int month
     ) {
         try {
-            var accessToken = repositories.findAccessToken(tokenValue);
-            if(accessToken == null || !accessToken.isActive() || accessToken.getUser() == null || !ROLE_ADMIN.equals(accessToken.getUser().getRole())) {
+            var accessToken = repositories.findAccessToken(token);
+            if(accessToken == null || !accessToken.isActive() || accessToken.getUserId() == null || !keycloak.getUserRoles(accessToken.getUserId()).contains("admin")) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
 
@@ -77,18 +84,12 @@ public class AdminAPI {
         path = "/admin/stats",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<StatsJson> getStats(@RequestParam("token") String tokenValue) {
-        try {
-            admins.checkAdminUser();
-
-            var json = new StatsJson();
-            json.userCount = repositories.countUsers();
-            json.extensionCount = repositories.countExtensions();
-            json.namespaceCount = repositories.countNamespaces();
-            return ResponseEntity.ok(json);
-        } catch (ErrorResultException exc) {
-            return exc.toResponseEntity(StatsJson.class);
-        }
+    public ResponseEntity<StatsJson> getStats() {
+        var statsJson = new StatsJson();
+        statsJson.userCount = keycloak.countUsers();
+        statsJson.extensionCount = repositories.countExtensions();
+        statsJson.namespaceCount = repositories.countNamespaces();
+        return ResponseEntity.ok(statsJson);
     }
 
     @GetMapping(
@@ -96,115 +97,99 @@ public class AdminAPI {
         produces = MediaType.TEXT_PLAIN_VALUE
     )
     public String getLog(@RequestParam(name = "period", required = false) String periodString) {
-        try {
-            admins.checkAdminUser();
-
-            Streamable<PersistedLog> logs;
-            if (Strings.isNullOrEmpty(periodString)) {
-                logs = repositories.findAllPersistedLogs();
-            } else {
-                try {
-                    var period = Period.parse(periodString);
-                    var now = TimeUtil.getCurrentUTC();
-                    logs = repositories.findPersistedLogsAfter(now.minus(period));
-                } catch (DateTimeParseException exc) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid period");
-                }
+        Streamable<PersistedLog> logs;
+        if (Strings.isNullOrEmpty(periodString)) {
+            logs = repositories.findAllPersistedLogs();
+        } else {
+            try {
+                var period = Period.parse(periodString);
+                var now = TimeUtil.getCurrentUTC();
+                logs = repositories.findPersistedLogsAfter(now.minus(period));
+            } catch (DateTimeParseException exc) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid period");
             }
-            return logs.stream()
-                    .map(this::toString)
-                    .collect(Collectors.joining("\n")) + "\n";
-        } catch (ErrorResultException exc) {
-            var status = exc.getStatus() != null ? exc.getStatus() : HttpStatus.BAD_REQUEST;
-            throw new ResponseStatusException(status);
         }
+        return logs.stream()
+                .map(this::toString)
+                .collect(Collectors.joining("\n")) + "\n";
     }
 
     private String toString(PersistedLog log) {
-        var timestamp = log.getTimestamp().minusNanos(log.getTimestamp().getNano());
-        return timestamp + "\t" + log.getUser().getLoginName() + "\t" + log.getMessage();
+        return String.join("\t", log.getTimestamp().withNano(0).toString(), keycloak.getUserName(log.getUserId()), log.getMessage());
     }
 
     @PostMapping(
         path = "/admin/update-search-index",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<ResultJson> updateSearchIndex() {
-        try {
-            var adminUser = admins.checkAdminUser();
+    public ResponseEntity<ResultJson> updateSearchIndex(Principal principal) {
+        search.updateSearchIndex(true);
 
-            search.updateSearchIndex(true);
-
-            var result = ResultJson.success("Updated search index");
-            admins.logAdminAction(adminUser, result);
-            return ResponseEntity.ok(result);
-        } catch (ErrorResultException exc) {
-            return exc.toResponseEntity();
-        }
+        var result = json.success("Updated search index");
+        admins.logAdminAction(UserUtil.getUserId(principal), result);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping(
         path = "/admin/extension/{namespaceName}/{extensionName}",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<ExtensionJson> getExtension(@PathVariable String namespaceName,
-                                                      @PathVariable String extensionName) {
-        try {
-            admins.checkAdminUser();
-
-            var extension = repositories.findExtension(extensionName, namespaceName);
-            if (extension == null) {
-                var json = ExtensionJson.error("Extension not found: " + namespaceName + "." + extensionName);
-                return new ResponseEntity<>(json, HttpStatus.NOT_FOUND);
-            }
-
-            ExtensionJson json;
-            // Don't rely on the 'latest' relationship here because the extension might be inactive
-            var latest = VersionUtil.getLatest(repositories.findVersions(extension), Collections.emptyList());
-            if (latest == null) {
-                json = new ExtensionJson();
-                json.namespace = extension.getNamespace().getName();
-                json.name = extension.getName();
-                json.allVersions = Collections.emptyMap();
-                json.allTargetPlatformVersions = Collections.emptyMap();
-            } else {
-                json = local.toExtensionVersionJson(latest, null, false);
-                json.allTargetPlatformVersions = extension.getVersions().stream()
-                        .collect(Collectors.groupingBy(ExtensionVersion::getVersion, Collectors.mapping(ExtensionVersion::getTargetPlatform, Collectors.toList())));
-            }
-            json.active = extension.isActive();
-            return ResponseEntity.ok(json);
-        } catch (ErrorResultException exc) {
-            return exc.toResponseEntity(ExtensionJson.class);
+    public ResponseEntity<ExtensionJson> getExtension(
+            @PathVariable String namespaceName,
+            @PathVariable String extensionName
+    ) {
+        var extension = repositories.findExtension(extensionName, namespaceName);
+        if (extension == null) {
+            var error = json.error("Extension not found: " + namespaceName + "." + extensionName, ExtensionJson.class);
+            return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
         }
+
+        ExtensionJson extensionJson;
+        // Don't rely on the 'latest' relationship here because the extension might be inactive
+        var latest = VersionUtil.getLatest(repositories.findVersions(extension), Collections.emptyList());
+        if (latest == null) {
+            extensionJson = new ExtensionJson();
+            extensionJson.namespace = extension.getNamespace().getName();
+            extensionJson.name = extension.getName();
+            extensionJson.allVersions = Collections.emptyMap();
+            extensionJson.allTargetPlatformVersions = Collections.emptyMap();
+        } else {
+            extensionJson = local.toExtensionVersionJson(latest, null, false);
+            keycloak.enrichUserJson(extensionJson);
+            extensionJson.allTargetPlatformVersions = extension.getVersions().stream()
+                    .collect(Collectors.groupingBy(ExtensionVersion::getVersion, Collectors.mapping(ExtensionVersion::getTargetPlatform, Collectors.toList())));
+        }
+        extensionJson.active = extension.isActive();
+        return ResponseEntity.ok(extensionJson);
     }
 
     @PostMapping(
         path = "/admin/extension/{namespaceName}/{extensionName}/delete",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<ResultJson> deleteExtension(@PathVariable String namespaceName,
-                                                      @PathVariable String extensionName,
-                                                      @RequestBody(required = false) List<TargetPlatformVersionJson> targetVersions) {
+    public ResponseEntity<ResultJson> deleteExtension(
+            Principal principal,
+            @PathVariable String namespaceName,
+            @PathVariable String extensionName,
+            @RequestBody(required = false) List<TargetPlatformVersionJson> targetVersions
+    ) {
         try {
             ResultJson result;
-            var adminUser = admins.checkAdminUser();
-            if(targetVersions == null) {
-                result = admins.deleteExtension(namespaceName, extensionName, adminUser);
+            var adminId = UserUtil.getUserId(principal);
+            if (targetVersions == null) {
+                result = admins.deleteExtension(namespaceName, extensionName, adminId);
             } else {
                 var results = new ArrayList<ResultJson>();
-                for(var targetVersion : targetVersions) {
-                    results.add(admins.deleteExtension(namespaceName, extensionName, targetVersion.targetPlatform, targetVersion.version, adminUser));
+                for (var targetVersion : targetVersions) {
+                    results.add(admins.deleteExtension(namespaceName, extensionName, targetVersion.targetPlatform, targetVersion.version, adminId));
                 }
 
-                result = new ResultJson();
-                result.error = results.stream().map(r -> r.error).filter(Objects::nonNull).collect(Collectors.joining("\n"));
-                result.success = results.stream().map(r -> r.success).filter(Objects::nonNull).collect(Collectors.joining("\n"));
+                result = json.concatResults(results);
             }
 
             return ResponseEntity.ok(result);
-        } catch (ErrorResultException exc) {
-            return exc.toResponseEntity();
+        } catch(ErrorResultException exc) {
+            return json.toResponseEntity(exc);
         }
     }
 
@@ -214,18 +199,14 @@ public class AdminAPI {
     )
     public ResponseEntity<NamespaceJson> getNamespace(@PathVariable String namespaceName) {
         try {
-            admins.checkAdminUser();
-
             var namespace = local.getNamespace(namespaceName);
             var serverUrl = UrlUtil.getBaseUrl();
             namespace.membersUrl = UrlUtil.createApiUrl(serverUrl, "admin", "namespace", namespace.name, "members");
             namespace.roleUrl = UrlUtil.createApiUrl(serverUrl, "admin", "namespace", namespace.name, "change-member");
             return ResponseEntity.ok(namespace);
         } catch (NotFoundException exc) {
-            var json = NamespaceJson.error("Namespace not found: " + namespaceName);
-            return new ResponseEntity<>(json, HttpStatus.NOT_FOUND);
-        } catch (ErrorResultException exc) {
-            return exc.toResponseEntity(NamespaceJson.class);
+            var error = json.error("Namespace not found: " + namespaceName, NamespaceJson.class);
+            return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
         }
     }
 
@@ -236,15 +217,14 @@ public class AdminAPI {
     )
     public ResponseEntity<ResultJson> createNamespace(@RequestBody NamespaceJson namespace) {
         try {
-            admins.checkAdminUser();
-            var json = admins.createNamespace(namespace);
+            var resultJson = admins.createNamespace(namespace);
             var serverUrl = UrlUtil.getBaseUrl();
             var url = UrlUtil.createApiUrl(serverUrl, "admin", "namespace", namespace.name);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .location(URI.create(url))
-                    .body(json);
+                    .body(resultJson);
         } catch (ErrorResultException exc) {
-            return exc.toResponseEntity();
+            return json.toResponseEntity(exc);
         }
     }
 
@@ -253,61 +233,59 @@ public class AdminAPI {
         produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<NamespaceMembershipListJson> getNamespaceMembers(@PathVariable String namespaceName) {
-        try{
-            admins.checkAdminUser();
-            var namespace = repositories.findNamespace(namespaceName);
-            var memberships = repositories.findMemberships(namespace);
-            var membershipList = new NamespaceMembershipListJson();
-            membershipList.namespaceMemberships = memberships.map(membership -> membership.toJson()).toList();
-            return ResponseEntity.ok(membershipList);
-        } catch (ErrorResultException exc) {
-            return exc.toResponseEntity(NamespaceMembershipListJson.class);
-        }
+        var namespace = repositories.findNamespace(namespaceName);
+        var memberships = repositories.findMemberships(namespace);
+        var membershipList = new NamespaceMembershipListJson();
+        membershipList.namespaceMemberships = memberships.map(membership -> json.toNamespaceMembershipJson(membership)).toList();
+        keycloak.enrichUserJsons(membershipList);
+        return ResponseEntity.ok(membershipList);
     }
 
     @PostMapping(
         path = "/admin/namespace/{namespaceName}/change-member",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<ResultJson> editNamespaceMember(@PathVariable String namespaceName,
-                                                          @RequestParam("user") String userName,
-                                                          @RequestParam(required = false) String provider,
-                                                          @RequestParam String role) {
+    public ResponseEntity<ResultJson> editNamespaceMember(
+            Principal principal,
+            @PathVariable String namespaceName,
+            @RequestParam String userName,
+            @RequestParam String role
+    ) {
         try {
-            var adminUser = admins.checkAdminUser();
-            var result = admins.editNamespaceMember(namespaceName, userName, provider, role, adminUser);
+            var adminId = UserUtil.getUserId(principal);
+            var result = admins.editNamespaceMember(namespaceName, userName, role, adminId);
             return ResponseEntity.ok(result);
         } catch (ErrorResultException exc) {
-            return exc.toResponseEntity();
+            return json.toResponseEntity(exc);
         }
     }
 
     @GetMapping(
-        path = "/admin/publisher/{provider}/{loginName}",
+        path = "/admin/publisher/{userName}",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<UserPublishInfoJson> getUserPublishInfo(@PathVariable String provider, @PathVariable String loginName) {
+    public ResponseEntity<UserPublishInfoJson> getUserPublishInfo(@PathVariable String userName) {
         try {
-            admins.checkAdminUser();
-            var userPublishInfo = admins.getUserPublishInfo(provider, loginName);
+            var userPublishInfo = admins.getUserPublishInfo(userName);
             return ResponseEntity.ok(userPublishInfo);
         } catch (ErrorResultException exc) {
-            return exc.toResponseEntity(UserPublishInfoJson.class);
+            return json.toResponseEntity(exc, UserPublishInfoJson.class);
         }
     }
 
     @PostMapping(
-        path = "/admin/publisher/{provider}/{loginName}/revoke",
+        path = "/admin/publisher/{userName}/revoke",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<ResultJson> revokePublisherContributions(@PathVariable String loginName, @PathVariable String provider) {
+    public ResponseEntity<ResultJson> revokePublisherContributions(
+            Principal principal,
+            @PathVariable String userName
+    ) {
         try {
-            var adminUser = admins.checkAdminUser();
-            var result = admins.revokePublisherContributions(provider, loginName, adminUser);
-            return ResponseEntity.ok(result);
+            var adminId = UserUtil.getUserId(principal);
+            return ResponseEntity.ok(admins.revokePublisherContributions(userName, adminId));
         } catch (ErrorResultException exc) {
-            return exc.toResponseEntity();
+            return json.toResponseEntity(exc);
         }
     }
-    
 }

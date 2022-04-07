@@ -38,7 +38,7 @@ const useStyles = makeStyles((theme) => ({
     }
 }));
 
-export interface AddMemberDialoProps {
+export interface AddMemberDialogProps {
     open: boolean;
     onClose: () => void;
     filterUsers: (user: UserData) => boolean;
@@ -47,7 +47,7 @@ export interface AddMemberDialoProps {
     setLoadingState: (loading: boolean) => void;
 }
 
-export const AddMemberDialog: FunctionComponent<AddMemberDialoProps> = props => {
+export const AddMemberDialog: FunctionComponent<AddMemberDialogProps> = props => {
     const { open } = props;
     const classes = useStyles();
     const config = useContext(NamespaceDetailConfigContext);
@@ -61,9 +61,9 @@ export const AddMemberDialog: FunctionComponent<AddMemberDialoProps> = props => 
             if (!props.namespace) {
                 return;
             }
-            if (props.members.find(m => m.user.loginName === user.loginName && m.user.provider === user.provider)) {
+            if (props.members.find(m => m.user.userName === user.userName)) {
                 setShowUserPopper(false);
-                handleError({ message: `User ${user.loginName} is already a member of ${props.namespace.name}.` });
+                handleError({ message: `User ${user.userName} is already a member of ${props.namespace.name}.` });
                 return;
             }
             props.setLoadingState(true);
@@ -147,10 +147,10 @@ export const AddMemberDialog: FunctionComponent<AddMemberDialoProps> = props => 
                                 return <Box
                                     onClick={() => addUser(foundUser)}
                                     className={classes.foundUserContainer}
-                                    key={'found' + foundUser.loginName}>
+                                    key={'found' + foundUser.userName}>
                                     <Box flex='1' marginLeft='10px'>
                                         <Box fontWeight='bold'>
-                                            {foundUser.loginName}
+                                            {foundUser.userName}
                                         </Box>
                                         <Box fontSize='0.75rem'>
                                             {foundUser.fullName}

@@ -12,14 +12,14 @@ package org.eclipse.openvsx.repositories;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.util.Streamable;
 import org.eclipse.openvsx.entities.PersonalAccessToken;
-import org.eclipse.openvsx.entities.UserData;
 
 public interface PersonalAccessTokenRepository extends Repository<PersonalAccessToken, Long> {
-
-    Streamable<PersonalAccessToken> findByUser(UserData user);
 
     PersonalAccessToken findById(long id);
 
     PersonalAccessToken findByValue(String value);
 
+    Streamable<PersonalAccessToken> findByUserId(String userId);
+
+    Streamable<PersonalAccessToken> findAll();
 }

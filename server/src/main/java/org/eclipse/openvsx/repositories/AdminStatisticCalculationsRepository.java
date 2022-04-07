@@ -70,7 +70,7 @@ public class AdminStatisticCalculationsRepository {
         var lastChangedExtensionState = findLastChangedEntityStates(endExclusive, ENTITY_TYPE_EXTENSION).asTable("ae");
         var extensionVersionState = ENTITY_ACTIVE_STATE.as("evs");
         var lastChangedExtensionVersionState = findLastChangedEntityStates(endExclusive, ENTITY_TYPE_EXTENSION_VERSION).asTable("aev");
-        var publishers = DSL.countDistinct(PERSONAL_ACCESS_TOKEN.USER_DATA);
+        var publishers = DSL.countDistinct(PERSONAL_ACCESS_TOKEN.USER_ID);
         return dsl.select(publishers)
                 .from(EXTENSION)
                 .join(extensionState).on(extensionState.ENTITY_ID.eq(EXTENSION.ID).and(extensionState.ENTITY_TYPE.eq(ENTITY_TYPE_EXTENSION)))
@@ -92,7 +92,7 @@ public class AdminStatisticCalculationsRepository {
         var extensionVersionState = ENTITY_ACTIVE_STATE.as("evs");
         var lastChangedExtensionVersionState = findLastChangedEntityStates(endExclusive, ENTITY_TYPE_EXTENSION_VERSION).asTable("aev");
         var extensionCountsByPublisher = dsl.select(
-                    PERSONAL_ACCESS_TOKEN.USER_DATA.as(aliasPublisher),
+                    PERSONAL_ACCESS_TOKEN.USER_ID.as(aliasPublisher),
                     DSL.countDistinct(EXTENSION.ID).as(aliasExtensionCount)
                 )
                 .from(EXTENSION)
@@ -104,7 +104,7 @@ public class AdminStatisticCalculationsRepository {
                 .join(PERSONAL_ACCESS_TOKEN).on(PERSONAL_ACCESS_TOKEN.ID.eq(EXTENSION_VERSION.PUBLISHED_WITH_ID))
                 .where(extensionState.ACTIVE.eq(true))
                 .and(extensionVersionState.ACTIVE.eq(true))
-                .groupBy(PERSONAL_ACCESS_TOKEN.USER_DATA)
+                .groupBy(PERSONAL_ACCESS_TOKEN.USER_ID)
                 .asTable("aep");
 
         return dsl.select(
@@ -179,7 +179,7 @@ public class AdminStatisticCalculationsRepository {
     }
 
     public int countPublishersThatClaimedNamespaceOwnership(LocalDateTime endExclusive) {
-        var count = DSL.countDistinct(NAMESPACE_MEMBERSHIP.USER_DATA);
+        var count = DSL.countDistinct(NAMESPACE_MEMBERSHIP.USER_ID);
         var extensionState = ENTITY_ACTIVE_STATE.as("es");
         var lastChangedExtensionState = findLastChangedEntityStates(endExclusive, ENTITY_TYPE_EXTENSION).asTable("ae");
         var extensionVersionState = ENTITY_ACTIVE_STATE.as("evs");
@@ -192,7 +192,7 @@ public class AdminStatisticCalculationsRepository {
                 .join(extensionVersionState).on(extensionVersionState.ENTITY_ID.eq(EXTENSION_VERSION.ID).and(extensionVersionState.ENTITY_TYPE.eq(ENTITY_TYPE_EXTENSION_VERSION)))
                 .join(lastChangedExtensionVersionState).on(lastChangedExtensionVersionState.field(ENTITY_ACTIVE_STATE.ENTITY_ID).eq(extensionVersionState.ENTITY_ID).and(lastChangedExtensionVersionState.field(ALIAS_LAST_CHANGE, LocalDateTime.class).eq(extensionVersionState.TIMESTAMP)))
                 .join(PERSONAL_ACCESS_TOKEN).on(PERSONAL_ACCESS_TOKEN.ID.eq(EXTENSION_VERSION.PUBLISHED_WITH_ID))
-                .join(NAMESPACE_MEMBERSHIP).on(NAMESPACE_MEMBERSHIP.USER_DATA.eq(PERSONAL_ACCESS_TOKEN.USER_DATA).and(NAMESPACE_MEMBERSHIP.NAMESPACE.eq(EXTENSION.NAMESPACE_ID)))
+                .join(NAMESPACE_MEMBERSHIP).on(NAMESPACE_MEMBERSHIP.USER_ID.eq(PERSONAL_ACCESS_TOKEN.USER_ID).and(NAMESPACE_MEMBERSHIP.NAMESPACE.eq(EXTENSION.NAMESPACE_ID)))
                 .where(extensionState.ACTIVE.eq(true))
                 .and(extensionVersionState.ACTIVE.eq(true))
                 .and(NAMESPACE_MEMBERSHIP.ROLE.eq(NamespaceMembership.ROLE_OWNER))

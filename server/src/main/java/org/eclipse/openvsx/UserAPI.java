@@ -9,46 +9,31 @@
  ********************************************************************************/
 package org.eclipse.openvsx;
 
-import static org.eclipse.openvsx.util.UrlUtil.createApiUrl;
-
-import java.util.LinkedHashMap;
+import java.security.Principal;
 import java.util.List;
 
 import javax.persistence.EntityManager;
-import javax.servlet.http.HttpServletRequest;
 import javax.transaction.Transactional;
 
 import org.eclipse.openvsx.eclipse.EclipseService;
 import org.eclipse.openvsx.entities.NamespaceMembership;
 import org.eclipse.openvsx.entities.PersonalAccessToken;
-import org.eclipse.openvsx.json.AccessTokenJson;
-import org.eclipse.openvsx.json.CsrfTokenJson;
-import org.eclipse.openvsx.json.ErrorJson;
-import org.eclipse.openvsx.json.NamespaceJson;
-import org.eclipse.openvsx.json.NamespaceMembershipListJson;
-import org.eclipse.openvsx.json.ResultJson;
-import org.eclipse.openvsx.json.UserJson;
+import org.eclipse.openvsx.json.*;
+import org.eclipse.openvsx.keycloak.KeycloakService;
 import org.eclipse.openvsx.repositories.RepositoryService;
-import org.eclipse.openvsx.security.CodedAuthException;
-import org.eclipse.openvsx.util.CollectionUtil;
 import org.eclipse.openvsx.util.ErrorResultException;
 import org.eclipse.openvsx.util.TimeUtil;
 import org.eclipse.openvsx.util.UrlUtil;
+import org.eclipse.openvsx.util.UserUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.web.WebAttributes;
-import org.springframework.security.web.csrf.CsrfToken;
-import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.servlet.ModelAndView;
 
 @RestController
 public class UserAPI {
@@ -67,88 +52,34 @@ public class UserAPI {
     @Autowired
     EclipseService eclipse;
 
-    /**
-     * Redirect to GitHub Oauth2 login as default login provider.
-     */
-    @GetMapping(
-        path = "/login"
-    )
-    public ModelAndView login(ModelMap model) {
-        return new ModelAndView("redirect:/oauth2/authorization/github", model);
-    }
+    @Autowired
+    KeycloakService keycloak;
 
-    /**
-     * Retrieve the last authentication error and return its details.
-     */
-    @GetMapping(
-        path = "/user/auth-error",
-        produces = MediaType.APPLICATION_JSON_VALUE
-    )
-    public ErrorJson getAuthError(HttpServletRequest request) {
-        var authException = request.getSession().getAttribute(WebAttributes.AUTHENTICATION_EXCEPTION);
-        if (!(authException instanceof AuthenticationException))
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        var json = new ErrorJson();
-        json.message = ((AuthenticationException) authException).getMessage();
-        if (authException instanceof CodedAuthException)
-            json.code = ((CodedAuthException) authException).getCode();
-        return json;
-    }
-
-    /**
-     * This endpoint is used to check whether there is a logged-in user. For this reason, it
-     * does not return a 403 status, but an OK status with JSON body when no user data is
-     * available. This is to avoid unnecessary network error logging in the browser console.
-     */
-    @GetMapping(
-        path = "/user",
-        produces = MediaType.APPLICATION_JSON_VALUE
-    )
-    public UserJson getUserData() {
-        var user = users.findLoggedInUser();
-        if (user == null) {
-            return UserJson.error("Not logged in.");
-        }
-        var json = user.toUserJson();
-        var serverUrl = UrlUtil.getBaseUrl();
-        json.role = user.getRole();
-        json.tokensUrl = createApiUrl(serverUrl, "user", "tokens");
-        json.createTokenUrl = createApiUrl(serverUrl, "user", "token", "create");
-        eclipse.enrichUserJson(json, user);
-        return json;
-    }
+    @Autowired
+    JsonService json;
 
     @GetMapping(
-        path = "/user/csrf",
-        produces = MediaType.APPLICATION_JSON_VALUE
+            path = "/user",
+            produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public CsrfTokenJson getCsrfToken(HttpServletRequest request) {
-        var csrfToken = (CsrfToken) request.getAttribute("_csrf");
-        if (csrfToken == null) {
-            return CsrfTokenJson.error("Token is not available.");
-        }
-        var json = new CsrfTokenJson();
-        json.value = csrfToken.getToken();
-        json.header = csrfToken.getHeaderName();
-        return json;
+    public UserJson getUserData(Principal principal) {
+        var userJson = keycloak.getUserJson(principal);
+        eclipse.enrichUserJson(userJson, UserUtil.getUserId(principal));
+        return userJson;
     }
 
     @GetMapping(
         path = "/user/tokens",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public List<AccessTokenJson> getAccessTokens() {
-        var user = users.findLoggedInUser();
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        }
+    public List<AccessTokenJson> getAccessTokens(Principal principal) {
         var serverUrl = UrlUtil.getBaseUrl();
-        return repositories.findAccessTokens(user)
+        return repositories.findAccessTokens(UserUtil.getUserId(principal))
                 .filter(token -> token.isActive())
                 .map(token -> {
-                    var json = token.toAccessTokenJson();
-                    json.deleteTokenUrl = createApiUrl(serverUrl, "user", "token", "delete", Long.toString(token.getId()));
-                    return json;
+                    var accessTokenJson = json.toAccessTokenJson(token);
+                    accessTokenJson.deleteTokenUrl = UrlUtil.createApiUrl(serverUrl, "user", "token", "delete", Long.toString(token.getId()));
+                    return accessTokenJson;
                 })
                 .toList();
     }
@@ -158,28 +89,29 @@ public class UserAPI {
         produces = MediaType.APPLICATION_JSON_VALUE
     )
     @Transactional
-    public ResponseEntity<AccessTokenJson> createAccessToken(@RequestParam(required = false) String description) {
+    public ResponseEntity<AccessTokenJson> createAccessToken(
+            Principal principal,
+            @RequestParam(required = false) String description
+    ) {
         if (description != null && description.length() > TOKEN_DESCRIPTION_SIZE) {
-            var json = AccessTokenJson.error("The description must not be longer than " + TOKEN_DESCRIPTION_SIZE + " characters.");
-            return new ResponseEntity<>(json, HttpStatus.BAD_REQUEST);
+            var error = json.error("The description must not be longer than " + TOKEN_DESCRIPTION_SIZE + " characters.", AccessTokenJson.class);
+            return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
         }
-        var user = users.findLoggedInUser();
-        if (user == null) {
-            return new ResponseEntity<>(HttpStatus.FORBIDDEN);
-        }
+
         var token = new PersonalAccessToken();
-        token.setUser(user);
+        token.setUserId(UserUtil.getUserId(principal));
         token.setValue(users.generateTokenValue());
         token.setActive(true);
         token.setCreatedTimestamp(TimeUtil.getCurrentUTC());
         token.setDescription(description);
         entityManager.persist(token);
-        var json = token.toAccessTokenJson();
+
+        var accessTokenJson = json.toAccessTokenJson(token);
         // Include the token value after creation so the user can copy it
-        json.value = token.getValue();
+        accessTokenJson.value = token.getValue();
         var serverUrl = UrlUtil.getBaseUrl();
-        json.deleteTokenUrl = createApiUrl(serverUrl, "user", "token", "delete", Long.toString(token.getId()));
-        return new ResponseEntity<>(json, HttpStatus.CREATED);
+        accessTokenJson.deleteTokenUrl = UrlUtil.createApiUrl(serverUrl, "user", "token", "delete", Long.toString(token.getId()));
+        return new ResponseEntity<>(accessTokenJson, HttpStatus.CREATED);
     }
 
     @PostMapping(
@@ -187,47 +119,30 @@ public class UserAPI {
         produces = MediaType.APPLICATION_JSON_VALUE
     )
     @Transactional
-    public ResponseEntity<ResultJson> deleteAccessToken(@PathVariable long id) {
-        var user = users.findLoggedInUser();
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        }
+    public ResponseEntity<ResultJson> deleteAccessToken(
+            Principal principal,
+            @PathVariable long id
+    ) {
         var token = repositories.findAccessToken(id);
-        if (token == null || !token.isActive() || !token.getUser().equals(user)) {
-            var json = ResultJson.error("Token does not exist.");
-            return new ResponseEntity<>(json, HttpStatus.NOT_FOUND);
+        if (token == null || !token.isActive() || !token.getUserId().equals(UserUtil.getUserId(principal))) {
+            var error = json.error("Token does not exist.");
+            return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
         }
         token.setActive(false);
-        var json = ResultJson.success("Deleted access token for user " + user.getLoginName() + ".");
-        return ResponseEntity.ok(json);
+        var success = json.success("Deleted access token for user " + UserUtil.getUserName(principal) + ".");
+        return ResponseEntity.ok(success);
     }
 
     @GetMapping(
         path = "/user/namespaces",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public List<NamespaceJson> getOwnNamespaces() {
-        var user = users.findLoggedInUser();
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        }
-
-        var memberships = repositories.findMemberships(user, NamespaceMembership.ROLE_OWNER);
-
+    public List<NamespaceJson> getOwnNamespaces(Principal principal) {
+        var memberships = repositories.findMemberships(UserUtil.getUserId(principal), NamespaceMembership.ROLE_OWNER);
         return memberships.map(membership -> {
             var namespace = membership.getNamespace();
-            var json = new NamespaceJson();
-            json.name = namespace.getName();
-            json.extensions = new LinkedHashMap<>();
-            var serverUrl = UrlUtil.getBaseUrl();
-            for (var ext : repositories.findActiveExtensions(namespace)) {
-                String url = createApiUrl(serverUrl, "api", namespace.getName(), ext.getName());
-                json.extensions.put(ext.getName(), url);
-            }
-            json.verified = true;
-            json.membersUrl = createApiUrl(serverUrl, "user", "namespace", namespace.getName(), "members");
-            json.roleUrl = createApiUrl(serverUrl, "user", "namespace", namespace.getName(), "role");
-            return json;
+            var extensions = repositories.findActiveExtensions(namespace);
+            return json.toNamespaceJson(namespace, extensions);
         }).toList();
     }
 
@@ -235,21 +150,20 @@ public class UserAPI {
         path = "/user/namespace/{name}/members",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<NamespaceMembershipListJson> getNamespaceMembers(@PathVariable String name) {
-        var user = users.findLoggedInUser();
-        if (user == null) {
-            return new ResponseEntity<>(HttpStatus.FORBIDDEN);
-        }
-
+    public ResponseEntity<NamespaceMembershipListJson> getNamespaceMembers(
+            Principal principal,
+            @PathVariable String name
+    ) {
         var namespace = repositories.findNamespace(name);
-        var userMembership = repositories.findMembership(user, namespace);
+        var userMembership = repositories.findMembership(UserUtil.getUserId(principal), namespace);
         if (userMembership != null && userMembership.getRole().equals(NamespaceMembership.ROLE_OWNER)) {
             var memberships = repositories.findMemberships(namespace);
             var membershipList = new NamespaceMembershipListJson();
-            membershipList.namespaceMemberships = memberships.map(membership -> membership.toJson()).toList();
+            membershipList.namespaceMemberships = memberships.map(membership -> json.toNamespaceMembershipJson(membership)).toList();
+            keycloak.enrichUserJsons(membershipList);
             return new ResponseEntity<>(membershipList, HttpStatus.OK);
         } else {
-            return new ResponseEntity<>(NamespaceMembershipListJson.error("You don't have the permission to see this."), HttpStatus.FORBIDDEN); 
+            return new ResponseEntity<>(json.error("You don't have the permission to see this.", NamespaceMembershipListJson.class), HttpStatus.FORBIDDEN);
         }
     }
 
@@ -257,17 +171,16 @@ public class UserAPI {
         path = "/user/namespace/{namespace}/role",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<ResultJson> setNamespaceMember(@PathVariable String namespace, @RequestParam String user,
-            @RequestParam String role, @RequestParam(required = false) String provider) {
-        var requestingUser = users.findLoggedInUser();
-        if (requestingUser == null) {
-            return new ResponseEntity<>(HttpStatus.FORBIDDEN);
-        }
+    public ResponseEntity<ResultJson> setNamespaceMember(
+            Principal principal,
+            @PathVariable String namespace,
+            @RequestParam String userName,
+            @RequestParam String role
+    ) {
         try {
-            var json = users.setNamespaceMember(requestingUser, namespace, provider, user, role);
-            return ResponseEntity.ok(json);
+            return ResponseEntity.ok(users.setNamespaceMember(principal, namespace, userName, role));
         } catch (ErrorResultException exc) {
-            return exc.toResponseEntity();
+            return json.toResponseEntity(exc);
         }
     }
 
@@ -275,31 +188,29 @@ public class UserAPI {
         path = "/user/search/{name}",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public List<UserJson> getUsersStartWith(@PathVariable String name) {
-        if (users.findLoggedInUser() == null) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        }
-
-        var users = repositories.findUsersByLoginNameStartingWith(name)
-                .map(user -> user.toUserJson());
-        return CollectionUtil.limit(users, 5);
+    public List<UserJson> getUsersByUserNameContains(@PathVariable String name) {
+        return keycloak.findUsersByUserNameContains(name, 5);
     }
 
     @PostMapping(
         path = "/user/publisher-agreement",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<UserJson> signPublisherAgreement() {
-        var user = users.findLoggedInUser();
-        if (user == null) {
-            return new ResponseEntity<>(HttpStatus.FORBIDDEN);
-        }
+    public ResponseEntity<UserJson> signPublisherAgreement(Principal principal) {
         try {
-            eclipse.signPublisherAgreement(user);
-            return ResponseEntity.ok(getUserData());
+            return ResponseEntity.ok(eclipse.signPublisherAgreement(principal));
         } catch (ErrorResultException exc) {
-            return exc.toResponseEntity(UserJson.class);
+            return json.toResponseEntity(exc, UserJson.class);
         }
     }
 
+    @GetMapping(
+        path = "/user/eclipse/active-access-token",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResultJson hasActiveEclipseAccessToken(Principal principal) {
+        return keycloak.getEclipseToken(principal) != null
+                ? json.success("Found active Eclipse access token")
+                : json.error("No active Eclipse access token.\nPlease login with Eclipse.");
+    }
 }

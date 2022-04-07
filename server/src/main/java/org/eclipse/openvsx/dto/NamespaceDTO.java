@@ -9,8 +9,6 @@
  * ****************************************************************************** */
 package org.eclipse.openvsx.dto;
 
-import java.util.Objects;
-
 public class NamespaceDTO {
 
     private final long id;

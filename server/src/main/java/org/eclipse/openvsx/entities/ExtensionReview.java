@@ -17,9 +17,6 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
 
-import org.eclipse.openvsx.json.ReviewJson;
-import org.eclipse.openvsx.util.TimeUtil;
-
 @Entity
 public class ExtensionReview {
 
@@ -34,8 +31,7 @@ public class ExtensionReview {
 
     LocalDateTime timestamp;
 
-    @ManyToOne
-    UserData user;
+    String userId;
 
     String title;
 
@@ -43,20 +39,6 @@ public class ExtensionReview {
     String comment;
 
     int rating;
-
-
-    /**
-     * Convert to a JSON object.
-     */
-    public ReviewJson toReviewJson() {
-        var json = new ReviewJson();
-        json.timestamp = TimeUtil.toUTCString(this.getTimestamp());
-        json.user = this.getUser().toUserJson();
-        json.title = this.getTitle();
-        json.comment = this.getComment();
-        json.rating = this.getRating();
-        return json;
-    }
 
 	public long getId() {
 		return id;
@@ -90,12 +72,12 @@ public class ExtensionReview {
 		this.extension = extension;
 	}
 
-	public UserData getUser() {
-		return user;
+	public String getUserId() {
+		return userId;
 	}
 
-	public void setUser(UserData user) {
-		this.user = user;
+	public void setUserId(String userId) {
+		this.userId = userId;
 	}
 
 	public String getTitle() {

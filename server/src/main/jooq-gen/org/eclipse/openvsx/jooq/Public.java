@@ -22,10 +22,10 @@ import org.eclipse.openvsx.jooq.tables.Namespace;
 import org.eclipse.openvsx.jooq.tables.NamespaceMembership;
 import org.eclipse.openvsx.jooq.tables.PersistedLog;
 import org.eclipse.openvsx.jooq.tables.PersonalAccessToken;
+import org.eclipse.openvsx.jooq.tables.PublisherAgreement;
 import org.eclipse.openvsx.jooq.tables.Shedlock;
 import org.eclipse.openvsx.jooq.tables.SpringSession;
 import org.eclipse.openvsx.jooq.tables.SpringSessionAttributes;
-import org.eclipse.openvsx.jooq.tables.UserData;
 import org.jooq.Catalog;
 import org.jooq.Sequence;
 import org.jooq.Table;
@@ -121,6 +121,11 @@ public class Public extends SchemaImpl {
     public final PersonalAccessToken PERSONAL_ACCESS_TOKEN = PersonalAccessToken.PERSONAL_ACCESS_TOKEN;
 
     /**
+     * The table <code>public.publisher_agreement</code>.
+     */
+    public final PublisherAgreement PUBLISHER_AGREEMENT = PublisherAgreement.PUBLISHER_AGREEMENT;
+
+    /**
      * The table <code>public.shedlock</code>.
      */
     public final Shedlock SHEDLOCK = Shedlock.SHEDLOCK;
@@ -134,11 +139,6 @@ public class Public extends SchemaImpl {
      * The table <code>public.spring_session_attributes</code>.
      */
     public final SpringSessionAttributes SPRING_SESSION_ATTRIBUTES = SpringSessionAttributes.SPRING_SESSION_ATTRIBUTES;
-
-    /**
-     * The table <code>public.user_data</code>.
-     */
-    public final UserData USER_DATA = UserData.USER_DATA;
 
     /**
      * No further instances allowed
@@ -180,9 +180,9 @@ public class Public extends SchemaImpl {
             NamespaceMembership.NAMESPACE_MEMBERSHIP,
             PersistedLog.PERSISTED_LOG,
             PersonalAccessToken.PERSONAL_ACCESS_TOKEN,
+            PublisherAgreement.PUBLISHER_AGREEMENT,
             Shedlock.SHEDLOCK,
             SpringSession.SPRING_SESSION,
-            SpringSessionAttributes.SPRING_SESSION_ATTRIBUTES,
-            UserData.USER_DATA);
+            SpringSessionAttributes.SPRING_SESSION_ATTRIBUTES);
     }
 }

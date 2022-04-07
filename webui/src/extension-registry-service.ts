@@ -10,25 +10,39 @@
 
 import {
     Extension, UserData, ExtensionCategory, ExtensionReviewList, PersonalAccessToken,
-    SearchResult, NewReview, SuccessResult, ErrorResult, CsrfTokenJson, isError, Namespace, MembershipRole, SortBy, SortOrder, UrlString, NamespaceMembershipList, PublisherInfo
+    SearchResult, NewReview, SuccessResult, ErrorResult, Namespace, MembershipRole, SortBy, SortOrder, UrlString, NamespaceMembershipList, PublisherInfo
 } from './extension-registry-types';
+import Keycloak from 'keycloak-js';
 import { createAbsoluteURL, addQuery } from './utils';
-import { sendRequest, ErrorResponse } from './server-request';
+import { sendRequest } from './server-request';
 
 export class ExtensionRegistryService {
 
     readonly admin: AdminService;
+    readonly keycloak: Keycloak.KeycloakInstance;
 
-    constructor(readonly serverUrl: string = '', admin?: AdminService) {
+    constructor(readonly serverUrl: string = '', keycloak: Keycloak.KeycloakInstance, admin?: AdminService) {
         this.admin = admin ?? new AdminService(this);
+        this.keycloak = keycloak;
     }
 
-    getLoginUrl(): string {
-        return createAbsoluteURL([this.serverUrl, 'oauth2', 'authorization', 'github']);
+    initKeycloak(): Promise<boolean> {
+        return this.keycloak.init({
+            onLoad: 'check-sso',
+            silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html'
+        });
     }
 
-    getLogoutUrl(): string {
-        return createAbsoluteURL([this.serverUrl, 'logout']);
+    login(options?: Keycloak.KeycloakLoginOptions): Keycloak.KeycloakPromise<void, void> {
+        if (!options) {
+            options = { redirectUri: window.location.href };
+        }
+
+        return this.keycloak.login(options);
+    }
+
+    logout(): Keycloak.KeycloakPromise<void, void> {
+        return this.keycloak.logout({ redirectUri: window.location.origin });
     }
 
     getExtensionApiUrl(ext: { namespace: string, name: string, target?: string, version?: string }): string {
@@ -108,156 +122,122 @@ export class ExtensionRegistryService {
     }
 
     async postReview(review: NewReview, postReviewUrl: UrlString): Promise<Readonly<SuccessResult | ErrorResult>> {
-        const csrfToken = await this.getCsrfToken();
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json;charset=UTF-8'
-        };
-        if (!isError(csrfToken)) {
-            headers[csrfToken.header] = csrfToken.value;
-        }
+        const headers = await this.getAuthorizationHeader();
+        headers['Content-Type'] = 'application/json;charset=UTF-8';
         return sendRequest({
             method: 'POST',
             payload: review,
-            credentials: true,
             endpoint: postReviewUrl,
             headers
         });
     }
 
     async deleteReview(deleteReviewUrl: string): Promise<Readonly<SuccessResult | ErrorResult>> {
-        const csrfToken = await this.getCsrfToken();
-        const headers: Record<string, string> = {};
-        if (!isError(csrfToken)) {
-            headers[csrfToken.header] = csrfToken.value;
-        }
+        const headers = await this.getAuthorizationHeader();
         return sendRequest({
             method: 'POST',
-            credentials: true,
             endpoint: deleteReviewUrl,
             headers
         });
     }
 
-    getUser(): Promise<Readonly<UserData | ErrorResult>> {
+    async getUser(): Promise<Readonly<UserData | undefined>> {
+        if (!this.keycloak.authenticated) {
+            return undefined;
+        }
+
+        const headers = await this.getAuthorizationHeader();
         return sendRequest({
             endpoint: createAbsoluteURL([this.serverUrl, 'user']),
-            credentials: true
+            headers: headers
         });
     }
 
-    getUserAuthError(): Promise<Readonly<ErrorResponse>> {
+    async getUserActiveEclipseAccessToken(): Promise<Readonly<SuccessResult | ErrorResult>> {
+        const headers = await this.getAuthorizationHeader();
         return sendRequest({
-            endpoint: createAbsoluteURL([this.serverUrl, 'user', 'auth-error']),
-            credentials: true
+            endpoint: createAbsoluteURL([this.serverUrl, 'user', 'eclipse', 'active-access-token']),
+            headers: headers
         });
     }
 
-    getUserByName(name: string): Promise<Readonly<UserData>[]> {
+    async getUserByName(name: string): Promise<Readonly<UserData>[]> {
+        const headers = await this.getAuthorizationHeader();
         return sendRequest({
             endpoint: createAbsoluteURL([this.serverUrl, 'user', 'search', name]),
-            credentials: true
+            headers
         });
     }
 
-    getAccessTokens(user: UserData): Promise<Readonly<PersonalAccessToken>[]> {
+    async getAccessTokens(): Promise<Readonly<PersonalAccessToken>[]> {
+        const headers = await this.getAuthorizationHeader();
         return sendRequest({
-            credentials: true,
-            endpoint: user.tokensUrl
+            headers,
+            endpoint: createAbsoluteURL([this.serverUrl, 'user', 'tokens']),
         });
     }
 
     async createAccessToken(user: UserData, description: string): Promise<Readonly<PersonalAccessToken>> {
-        const csrfToken = await this.getCsrfToken();
-        const headers: Record<string, string> = {};
-        if (!isError(csrfToken)) {
-            headers[csrfToken.header] = csrfToken.value;
-        }
-        const endpoint = addQuery(user.createTokenUrl, [{ key: 'description', value: description }]);
+        const headers = await this.getAuthorizationHeader();
+        const endpoint = addQuery(createAbsoluteURL([this.serverUrl, 'user', 'token', 'create']), [{ key: 'description', value: description }]);
         return sendRequest({
             method: 'POST',
-            credentials: true,
             endpoint,
             headers
         });
     }
 
     async deleteAccessToken(token: PersonalAccessToken): Promise<Readonly<SuccessResult | ErrorResult>> {
-        const csrfToken = await this.getCsrfToken();
-        const headers: Record<string, string> = {};
-        if (!isError(csrfToken)) {
-            headers[csrfToken.header] = csrfToken.value;
-        }
+        const headers = await this.getAuthorizationHeader();
         return sendRequest({
             method: 'POST',
-            credentials: true,
             endpoint: token.deleteTokenUrl,
             headers
         });
     }
 
     async deleteAllAccessTokens(tokens: PersonalAccessToken[]): Promise<Readonly<SuccessResult | ErrorResult>[]> {
-        const csrfToken = await this.getCsrfToken();
-        const headers: Record<string, string> = {};
-        if (!isError(csrfToken)) {
-            headers[csrfToken.header] = csrfToken.value;
-        }
+        const headers = await this.getAuthorizationHeader();
         return await Promise.all(tokens.map(token => sendRequest<SuccessResult | ErrorResult>({
             method: 'POST',
-            credentials: true,
             endpoint: token.deleteTokenUrl,
             headers
         })));
     }
 
-    getCsrfToken(): Promise<Readonly<CsrfTokenJson | ErrorResult>> {
+    async getNamespaces(): Promise<Readonly<Namespace>[]> {
+        const headers = await this.getAuthorizationHeader();
         return sendRequest({
-            credentials: true,
-            endpoint: createAbsoluteURL([this.serverUrl, 'user', 'csrf'])
-        });
-    }
-
-    getNamespaces(): Promise<Readonly<Namespace>[]> {
-        return sendRequest({
-            credentials: true,
+            headers,
             endpoint: createAbsoluteURL([this.serverUrl, 'user', 'namespaces'])
         });
     }
 
-    getNamespaceMembers(namespace: Namespace): Promise<Readonly<NamespaceMembershipList>> {
+    async getNamespaceMembers(namespace: Namespace): Promise<Readonly<NamespaceMembershipList>> {
+        const headers = await this.getAuthorizationHeader();
         return sendRequest({
-            credentials: true,
+            headers,
             endpoint: namespace.membersUrl
         });
     }
 
     async setNamespaceMember(endpoint: UrlString, user: UserData, role: MembershipRole | 'remove'): Promise<Readonly<SuccessResult | ErrorResult>[]> {
-        const csrfToken = await this.getCsrfToken();
-        const headers: Record<string, string> = {};
-        if (!isError(csrfToken)) {
-            headers[csrfToken.header] = csrfToken.value;
-        }
+        const headers = await this.getAuthorizationHeader();
         const query = [
-            { key: 'user', value: user.loginName },
-            { key: 'provider', value: user.provider },
+            { key: 'userName', value: user.userName },
             { key: 'role', value: role }
         ];
         return sendRequest({
             headers,
             method: 'POST',
-            credentials: true,
             endpoint: addQuery(endpoint, query)
         });
     }
 
     async signPublisherAgreement(): Promise<Readonly<UserData | ErrorResult>> {
-        const csrfToken = await this.getCsrfToken();
-        const headers: Record<string, string> = {};
-        if (!isError(csrfToken)) {
-            headers[csrfToken.header] = csrfToken.value;
-        }
+        const headers = await this.getAuthorizationHeader();
         return sendRequest<UserData | ErrorResult>({
             method: 'POST',
-            credentials: true,
             endpoint: createAbsoluteURL([this.serverUrl, 'user', 'publisher-agreement']),
             headers
         });
@@ -270,53 +250,54 @@ export class ExtensionRegistryService {
             followRedirect: true
         });
     }
+
+    async getAuthorizationHeader(): Promise<Record<string, string>> {
+        return this.keycloak.updateToken(30).then(() => {
+            return { 'Authorization': `Bearer ${this.keycloak.token}` };
+        },
+        async () => {
+            return this.logout().then(() => {
+                return {};
+            });
+        });
+    }
 }
 
 export class AdminService {
 
     constructor(readonly registry: ExtensionRegistryService) { }
 
-    getExtension(namespace: string, extension: string): Promise<Readonly<Extension>> {
+    async getExtension(namespace: string, extension: string): Promise<Readonly<Extension | ErrorResult>> {
+        const headers = await this.registry.getAuthorizationHeader();
         return sendRequest({
-            credentials: true,
+            headers,
             endpoint: createAbsoluteURL([this.registry.serverUrl, 'admin', 'extension', namespace, extension])
         });
     }
 
     async deleteExtensions(req: { namespace: string, extension: string, targetPlatformVersions?: object[] }): Promise<Readonly<SuccessResult | ErrorResult>> {
-        const csrfToken = await this.registry.getCsrfToken();
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json;charset=UTF-8'
-        };
-        if (!isError(csrfToken)) {
-            headers[csrfToken.header] = csrfToken.value;
-        }
+        const headers = await this.registry.getAuthorizationHeader();
+        headers['Content-Type'] = 'application/json;charset=UTF-8';
         return sendRequest({
             method: 'POST',
-            credentials: true,
             endpoint: createAbsoluteURL([this.registry.serverUrl, 'admin', 'extension', req.namespace, req.extension, 'delete']),
             headers,
             payload: req.targetPlatformVersions
         });
     }
 
-    getNamespace(name: string): Promise<Readonly<Namespace>> {
+    async getNamespace(name: string): Promise<Readonly<Namespace>> {
+        const headers = await this.registry.getAuthorizationHeader();
         return sendRequest({
-            credentials: true,
+            headers,
             endpoint: createAbsoluteURL([this.registry.serverUrl, 'admin', 'namespace', name])
         });
     }
 
     async createNamespace(namespace: { name: string }): Promise<Readonly<SuccessResult | ErrorResult>> {
-        const csrfToken = await this.registry.getCsrfToken();
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json;charset=UTF-8'
-        };
-        if (!isError(csrfToken)) {
-            headers[csrfToken.header] = csrfToken.value;
-        }
+        const headers = await this.registry.getAuthorizationHeader();
+        headers['Content-Type'] = 'application/json;charset=UTF-8';
         return sendRequest({
-            credentials: true,
             endpoint: createAbsoluteURL([this.registry.serverUrl, 'admin', 'create-namespace']),
             method: 'POST',
             payload: namespace,
@@ -324,27 +305,22 @@ export class AdminService {
         });
     }
 
-    async getPublisherInfo(provider: string, login: string): Promise<Readonly<PublisherInfo>> {
+    async getPublisherInfo(userName: string): Promise<Readonly<PublisherInfo>> {
+        const headers = await this.registry.getAuthorizationHeader();
         return sendRequest({
-            endpoint: createAbsoluteURL([this.registry.serverUrl, 'admin', 'publisher', provider, login]),
-            credentials: true
-        });
-    }
-
-    async revokePublisherContributions(provider: string, login: string): Promise<Readonly<SuccessResult | ErrorResult>> {
-        const csrfToken = await this.registry.getCsrfToken();
-        const headers: Record<string, string> = {};
-        if (!isError(csrfToken)) {
-            headers[csrfToken.header] = csrfToken.value;
-        }
-        return sendRequest({
-            method: 'POST',
-            credentials: true,
-            endpoint: createAbsoluteURL([this.registry.serverUrl, 'admin', 'publisher', provider, login, 'revoke']),
+            endpoint: createAbsoluteURL([this.registry.serverUrl, 'admin', 'publisher', userName]),
             headers
         });
     }
 
+    async revokePublisherContributions(userName: string): Promise<Readonly<SuccessResult | ErrorResult>> {
+        const headers = await this.registry.getAuthorizationHeader();
+        return sendRequest({
+            method: 'POST',
+            endpoint: createAbsoluteURL([this.registry.serverUrl, 'admin', 'publisher', userName, 'revoke']),
+            headers
+        });
+    }
 }
 
 export interface ExtensionFilter {

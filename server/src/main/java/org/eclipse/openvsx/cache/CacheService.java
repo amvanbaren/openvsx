@@ -11,7 +11,6 @@ package org.eclipse.openvsx.cache;
 
 import org.eclipse.openvsx.entities.Extension;
 import org.eclipse.openvsx.entities.ExtensionVersion;
-import org.eclipse.openvsx.entities.UserData;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,13 +38,6 @@ public class CacheService {
 
     public void evictExtensionJsons(String namespaceName, String extensionName) {
         evictExtensionJsons(repositoryService.findExtension(extensionName, namespaceName));
-    }
-
-    public void evictExtensionJsons(UserData user) {
-        repositoryService.findVersions(user)
-                .map(ExtensionVersion::getExtension)
-                .toSet()
-                .forEach(this::evictExtensionJsons);
     }
 
     public void evictExtensionJsons(Extension extension) {

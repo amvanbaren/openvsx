@@ -9,15 +9,13 @@
  ********************************************************************************/
 package org.eclipse.openvsx.json;
 
-import java.util.List;
-
 import javax.validation.constraints.NotNull;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;;
+import io.swagger.annotations.ApiModelProperty;
 
 @ApiModel(
     value = "User",
@@ -26,21 +24,11 @@ import io.swagger.annotations.ApiModelProperty;;
 @JsonInclude(Include.NON_NULL)
 public class UserJson extends ResultJson {
 
-    public static UserJson error(String message) {
-        var user = new UserJson();
-        user.error = message;
-        return user;
-    }
+    public String userId;
 
-    @ApiModelProperty("Login name")
+    @ApiModelProperty("User name")
     @NotNull
-    public String loginName;
-
-    @ApiModelProperty(hidden = true)
-    public String tokensUrl;
-
-    @ApiModelProperty(hidden = true)
-    public String createTokenUrl;
+    public String userName;
 
     @ApiModelProperty(hidden = true)
     public String role;
@@ -54,23 +42,14 @@ public class UserJson extends ResultJson {
     @ApiModelProperty("URL to the user's profile page")
     public String homepage;
 
-    @ApiModelProperty("Authentication provider (e.g. github)")
-    public String provider;
-
     @ApiModelProperty(hidden = true)
     public PublisherAgreement publisherAgreement;
 
-    @ApiModelProperty(hidden = true)
-    public List<UserJson> additionalLogins;
-
     @JsonInclude(Include.NON_NULL)
     public static class PublisherAgreement {
-
         /* 'none' | 'signed' | 'outdated' */
         public String status;
 
         public String timestamp;
-
     }
-
 }

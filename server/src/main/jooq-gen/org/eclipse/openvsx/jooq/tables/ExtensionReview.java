@@ -87,7 +87,7 @@ public class ExtensionReview extends TableImpl<ExtensionReviewRecord> {
     /**
      * The column <code>public.extension_review.user_id</code>.
      */
-    public final TableField<ExtensionReviewRecord, Long> USER_ID = createField(DSL.name("user_id"), SQLDataType.BIGINT, this, "");
+    public final TableField<ExtensionReviewRecord, String> USER_ID = createField(DSL.name("user_id"), SQLDataType.VARCHAR(255), this, "");
 
     private ExtensionReview(Name alias, Table<ExtensionReviewRecord> aliased) {
         this(alias, aliased, null);
@@ -129,7 +129,7 @@ public class ExtensionReview extends TableImpl<ExtensionReviewRecord> {
 
     @Override
     public List<Index> getIndexes() {
-        return Arrays.<Index>asList(Indexes.EXTENSION_REVIEW__EXTENSION_ID__IDX, Indexes.EXTENSION_REVIEW__USER_ID__IDX);
+        return Arrays.<Index>asList(Indexes.EXTENSION_REVIEW__EXTENSION_ID__IDX);
     }
 
     @Override
@@ -144,15 +144,11 @@ public class ExtensionReview extends TableImpl<ExtensionReviewRecord> {
 
     @Override
     public List<ForeignKey<ExtensionReviewRecord, ?>> getReferences() {
-        return Arrays.<ForeignKey<ExtensionReviewRecord, ?>>asList(Keys.EXTENSION_REVIEW__FKGD2DQDC23OGBNOBX8AFJFPNKP, Keys.EXTENSION_REVIEW__FKINJBN9GRK135Y6IK0UT4UJP0W);
+        return Arrays.<ForeignKey<ExtensionReviewRecord, ?>>asList(Keys.EXTENSION_REVIEW__FKGD2DQDC23OGBNOBX8AFJFPNKP);
     }
 
     public Extension extension() {
         return new Extension(this, Keys.EXTENSION_REVIEW__FKGD2DQDC23OGBNOBX8AFJFPNKP);
-    }
-
-    public UserData userData() {
-        return new UserData(this, Keys.EXTENSION_REVIEW__FKINJBN9GRK135Y6IK0UT4UJP0W);
     }
 
     @Override
@@ -186,7 +182,7 @@ public class ExtensionReview extends TableImpl<ExtensionReviewRecord> {
     // -------------------------------------------------------------------------
 
     @Override
-    public Row8<Long, Boolean, String, Integer, LocalDateTime, String, Long, Long> fieldsRow() {
+    public Row8<Long, Boolean, String, Integer, LocalDateTime, String, Long, String> fieldsRow() {
         return (Row8) super.fieldsRow();
     }
 }

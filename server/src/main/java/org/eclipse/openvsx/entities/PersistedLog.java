@@ -13,10 +13,8 @@ import java.time.LocalDateTime;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.ForeignKey;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 
 @Entity
@@ -28,9 +26,7 @@ public class PersistedLog {
 
     LocalDateTime timestamp;
 
-    @ManyToOne
-    @JoinColumn(name = "user_data", foreignKey=@ForeignKey(name="persisted_log_user_data_fkey"))
-    UserData user;
+    String userId;
 
     @Column(length = 512)
     String message;
@@ -52,12 +48,12 @@ public class PersistedLog {
         this.timestamp = timestamp;
     }
 
-    public UserData getUser() {
-        return user;
+    public String getUserId() {
+        return userId;
     }
 
-    public void setUser(UserData user) {
-        this.user = user;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public String getMessage() {

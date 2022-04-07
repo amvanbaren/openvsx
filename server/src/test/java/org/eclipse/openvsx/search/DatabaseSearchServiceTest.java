@@ -325,12 +325,12 @@ public class DatabaseSearchServiceTest {
         extVer.setActive(true);
         extVer.setExtension(extension);
         extension.getVersions().add(extVer);
-        var user = new UserData();
+        var userId = "test_user";
         var token = new PersonalAccessToken();
-        token.setUser(user);
+        token.setUserId(userId);
         extVer.setPublishedWith(token);
         var isUnrelated = false;
-        Mockito.when(repositories.countMemberships(user, namespace)).thenReturn(isUnrelated ? 0l : 1l);
+        Mockito.when(repositories.countMemberships(userId, namespace)).thenReturn(isUnrelated ? 0l : 1l);
         return extension;
     }
 

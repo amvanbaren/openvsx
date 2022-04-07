@@ -16,11 +16,7 @@ import java.util.stream.Collectors;
 import javax.persistence.*;
 
 import org.apache.jena.ext.com.google.common.collect.Maps;
-import org.eclipse.openvsx.json.ExtensionJson;
-import org.eclipse.openvsx.json.ExtensionReferenceJson;
-import org.eclipse.openvsx.json.SearchEntryJson;
 import org.eclipse.openvsx.util.SemanticVersion;
-import org.eclipse.openvsx.util.TimeUtil;
 
 @Entity
 @Table(uniqueConstraints = { @UniqueConstraint(columnNames = { "targetPlatform", "version" })})
@@ -103,93 +99,6 @@ public class ExtensionVersion {
     @Column(length = 2048)
     @Convert(converter = ListOfStringConverter.class)
     List<String> bundledExtensions;
-
-
-    /**
-     * Convert to a JSON object without URLs.
-     */
-    public ExtensionJson toExtensionJson() {
-        var json = new ExtensionJson();
-        json.targetPlatform = this.getTargetPlatform();
-        json.namespace = extension.getNamespace().getName();
-        json.name = extension.getName();
-        json.averageRating = extension.getAverageRating();
-        json.downloadCount = extension.getDownloadCount();
-        json.version = this.getVersion();
-        json.preRelease = this.isPreRelease();
-        if (this.getTimestamp() != null) {
-            json.timestamp = TimeUtil.toUTCString(this.getTimestamp());
-        }
-        json.displayName = this.getDisplayName();
-        json.description = this.getDescription();
-        json.engines = this.getEnginesMap();
-        json.categories = this.getCategories();
-        json.extensionKind = this.getExtensionKind();
-        json.tags = this.getTags();
-        json.license = this.getLicense();
-        json.homepage = this.getHomepage();
-        json.repository = this.getRepository();
-        json.bugs = this.getBugs();
-        json.markdown = this.getMarkdown();
-        json.galleryColor = this.getGalleryColor();
-        json.galleryTheme = this.getGalleryTheme();
-        json.qna = this.getQna();
-        if (this.getPublishedWith() != null) {
-            json.publishedBy = this.getPublishedWith().getUser().toUserJson();
-        }
-        if (this.getDependencies() != null) {
-            json.dependencies = toExtensionReferenceJson(this.getDependencies());
-        }
-        if (this.getBundledExtensions() != null) {
-            json.bundledExtensions = toExtensionReferenceJson(this.getBundledExtensions());
-        }
-        return json;
-    }
-
-    private List<ExtensionReferenceJson> toExtensionReferenceJson(List<String> extensionReferences) {
-        return extensionReferences.stream().map(fqn -> {
-            var startIndex = fqn.indexOf('.');
-            var lastIndex = fqn.lastIndexOf('.');
-            if (startIndex <= 0 || lastIndex >= fqn.length() - 1 || startIndex != lastIndex) {
-                return null;
-            }
-            var ref = new ExtensionReferenceJson();
-            ref.namespace = fqn.substring(0, startIndex);
-            ref.extension = fqn.substring(startIndex + 1);
-            return ref;
-        }).filter(Objects::nonNull).collect(Collectors.toList());
-    }
-
-    /**
-     * Convert to a search entry JSON object without URLs.
-     */
-    public SearchEntryJson toSearchEntryJson() {
-        var entry = new SearchEntryJson();
-        var extension = this.getExtension();
-        entry.name = extension.getName();
-        entry.namespace = extension.getNamespace().getName();
-        entry.averageRating = extension.getAverageRating();
-        entry.downloadCount = extension.getDownloadCount();
-        entry.version = this.getVersion();
-        entry.timestamp = TimeUtil.toUTCString(this.getTimestamp());
-        entry.displayName = this.getDisplayName();
-        entry.description = this.getDescription();
-        return entry;
-    }
-
-    public Map<String, String> getEnginesMap() {
-        var engines = this.getEngines();
-        if (engines == null)
-            return null;
-        var result = Maps.<String, String>newLinkedHashMapWithExpectedSize(engines.size());
-        for (var engine : engines) {
-            var split = engine.split("@");
-            if (split.length == 2) {
-                result.put(split[0], split[1]);
-            }
-        }
-        return result;
-    }
 
 	public long getId() {
 		return id;

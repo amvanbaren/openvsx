@@ -30,7 +30,9 @@ def versions = [
     testcontainers: '1.15.2',
     jackson: '2.12.5',
     woodstox: '6.2.4',
-    jobrunr: '5.1.2'
+    jobrunr: '5.1.2',
+    keycloak: '17.0.1',
+    keycloakAddons: '4.1.5'
 ]
 ext['junit-jupiter.version'] = versions.junit
 sourceCompatibility = versions.java
@@ -56,6 +58,9 @@ configurations {
 }
 
 dependencies {
+    implementation "org.keycloak:keycloak-admin-client:${versions.keycloak}"
+    implementation "org.keycloak:keycloak-spring-boot-starter:${versions.keycloak}"
+    implementation group: "org.keycloak.bom", name: "keycloak-adapter-bom", version: "${versions.keycloak}", ext: "pom"
     implementation "org.springframework.boot:spring-boot-starter-web"
     implementation "org.springframework.boot:spring-boot-starter-validation"
     implementation "org.springframework.boot:spring-boot-starter-jooq"
@@ -63,8 +68,6 @@ dependencies {
     implementation "org.springframework.boot:spring-boot-starter-data-elasticsearch"
     implementation "org.springframework.boot:spring-boot-starter-security"
     implementation "org.springframework.boot:spring-boot-starter-actuator"
-    implementation "org.springframework.security:spring-security-oauth2-client"
-    implementation "org.springframework.security:spring-security-oauth2-jose"
     implementation "org.springframework.session:spring-session-jdbc"
     implementation "org.jobrunr:jobrunr-spring-boot-starter:${versions.jobrunr}"
     implementation "org.flywaydb:flyway-core:${versions.flyway}"
@@ -90,6 +93,7 @@ dependencies {
 
     devRuntimeOnly "org.springframework.boot:spring-boot-devtools"
 
+    testImplementation "com.c4-soft.springaddons:spring-addons-keycloak-jdk11:${versions.keycloakAddons}"
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }

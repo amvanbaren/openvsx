@@ -78,9 +78,9 @@ public class PersonalAccessToken extends TableImpl<PersonalAccessTokenRecord> {
     public final TableField<PersonalAccessTokenRecord, String> VALUE = createField(DSL.name("value"), SQLDataType.VARCHAR(64), this, "");
 
     /**
-     * The column <code>public.personal_access_token.user_data</code>.
+     * The column <code>public.personal_access_token.user_id</code>.
      */
-    public final TableField<PersonalAccessTokenRecord, Long> USER_DATA = createField(DSL.name("user_data"), SQLDataType.BIGINT, this, "");
+    public final TableField<PersonalAccessTokenRecord, String> USER_ID = createField(DSL.name("user_id"), SQLDataType.VARCHAR(255), this, "");
 
     private PersonalAccessToken(Name alias, Table<PersonalAccessTokenRecord> aliased) {
         this(alias, aliased, null);
@@ -131,15 +131,6 @@ public class PersonalAccessToken extends TableImpl<PersonalAccessTokenRecord> {
     }
 
     @Override
-    public List<ForeignKey<PersonalAccessTokenRecord, ?>> getReferences() {
-        return Arrays.<ForeignKey<PersonalAccessTokenRecord, ?>>asList(Keys.PERSONAL_ACCESS_TOKEN__FKTQJVMHOIG3WTTJ6DL1IBCAJ3L);
-    }
-
-    public UserData userData() {
-        return new UserData(this, Keys.PERSONAL_ACCESS_TOKEN__FKTQJVMHOIG3WTTJ6DL1IBCAJ3L);
-    }
-
-    @Override
     public PersonalAccessToken as(String alias) {
         return new PersonalAccessToken(DSL.name(alias), this);
     }
@@ -170,7 +161,7 @@ public class PersonalAccessToken extends TableImpl<PersonalAccessTokenRecord> {
     // -------------------------------------------------------------------------
 
     @Override
-    public Row7<Long, LocalDateTime, Boolean, LocalDateTime, String, String, Long> fieldsRow() {
+    public Row7<Long, LocalDateTime, Boolean, LocalDateTime, String, String, String> fieldsRow() {
         return (Row7) super.fieldsRow();
     }
 }

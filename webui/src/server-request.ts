@@ -13,7 +13,6 @@ export interface ServerAPIRequest {
     method?: 'GET' | 'DELETE' | 'POST' | 'PUT';
     headers?: Record<string, string>;
     followRedirect?: boolean;
-    credentials?: boolean;
     payload?: any;
 }
 
@@ -46,9 +45,6 @@ export async function sendRequest<Res>(req: ServerAPIRequest): Promise<Res> {
     param.headers = req.headers;
     if (req.followRedirect) {
         param.redirect = 'follow';
-    }
-    if (req.credentials) {
-        param.credentials = 'include';
     }
 
     const response = await fetch(req.endpoint, param);

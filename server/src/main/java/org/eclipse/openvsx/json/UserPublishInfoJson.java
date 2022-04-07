@@ -19,12 +19,6 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 @JsonInclude(Include.NON_NULL)
 public class UserPublishInfoJson extends ResultJson {
 
-    public static UserPublishInfoJson error(String message) {
-        var userPublishInfo = new UserPublishInfoJson();
-        userPublishInfo.error = message;
-        return userPublishInfo;
-    }
-
     @NotNull
     public UserJson user;
 

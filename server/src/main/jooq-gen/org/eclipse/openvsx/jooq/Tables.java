@@ -19,10 +19,10 @@ import org.eclipse.openvsx.jooq.tables.Namespace;
 import org.eclipse.openvsx.jooq.tables.NamespaceMembership;
 import org.eclipse.openvsx.jooq.tables.PersistedLog;
 import org.eclipse.openvsx.jooq.tables.PersonalAccessToken;
+import org.eclipse.openvsx.jooq.tables.PublisherAgreement;
 import org.eclipse.openvsx.jooq.tables.Shedlock;
 import org.eclipse.openvsx.jooq.tables.SpringSession;
 import org.eclipse.openvsx.jooq.tables.SpringSessionAttributes;
-import org.eclipse.openvsx.jooq.tables.UserData;
 
 
 /**
@@ -107,6 +107,11 @@ public class Tables {
     public static final PersonalAccessToken PERSONAL_ACCESS_TOKEN = PersonalAccessToken.PERSONAL_ACCESS_TOKEN;
 
     /**
+     * The table <code>public.publisher_agreement</code>.
+     */
+    public static final PublisherAgreement PUBLISHER_AGREEMENT = PublisherAgreement.PUBLISHER_AGREEMENT;
+
+    /**
      * The table <code>public.shedlock</code>.
      */
     public static final Shedlock SHEDLOCK = Shedlock.SHEDLOCK;
@@ -120,9 +125,4 @@ public class Tables {
      * The table <code>public.spring_session_attributes</code>.
      */
     public static final SpringSessionAttributes SPRING_SESSION_ATTRIBUTES = SpringSessionAttributes.SPRING_SESSION_ATTRIBUTES;
-
-    /**
-     * The table <code>public.user_data</code>.
-     */
-    public static final UserData USER_DATA = UserData.USER_DATA;
 }

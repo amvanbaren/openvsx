@@ -64,6 +64,7 @@ export const UserNamespaceMemberList: FunctionComponent<UserNamespaceMemberList.
         try {
             props.setLoadingState(true);
             const endpoint = props.namespace.roleUrl;
+            console.log('membership: ' + JSON.stringify(membership));
             const result = await service.setNamespaceMember(endpoint, membership.user, role);
             if (isError(result)) {
                 throw result;
@@ -90,7 +91,7 @@ export const UserNamespaceMemberList: FunctionComponent<UserNamespaceMemberList.
             <Paper>
                 {members.map(member =>
                     <UserNamespaceMember
-                        key={'nspcmbr-' + member.user.loginName + member.user.provider}
+                        key={'nspcmbr-' + member.user.userName}
                         namespace={props.namespace}
                         member={member}
                         fixSelf={props.fixSelf}

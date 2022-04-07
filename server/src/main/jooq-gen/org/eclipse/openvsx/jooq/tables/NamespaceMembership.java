@@ -64,9 +64,9 @@ public class NamespaceMembership extends TableImpl<NamespaceMembershipRecord> {
     public final TableField<NamespaceMembershipRecord, Long> NAMESPACE = createField(DSL.name("namespace"), SQLDataType.BIGINT, this, "");
 
     /**
-     * The column <code>public.namespace_membership.user_data</code>.
+     * The column <code>public.namespace_membership.user_id</code>.
      */
-    public final TableField<NamespaceMembershipRecord, Long> USER_DATA = createField(DSL.name("user_data"), SQLDataType.BIGINT, this, "");
+    public final TableField<NamespaceMembershipRecord, String> USER_ID = createField(DSL.name("user_id"), SQLDataType.VARCHAR(255), this, "");
 
     private NamespaceMembership(Name alias, Table<NamespaceMembershipRecord> aliased) {
         this(alias, aliased, null);
@@ -108,7 +108,7 @@ public class NamespaceMembership extends TableImpl<NamespaceMembershipRecord> {
 
     @Override
     public List<Index> getIndexes() {
-        return Arrays.<Index>asList(Indexes.NAMESPACE_MEMBERSHIP__NAMESPACE__IDX, Indexes.NAMESPACE_MEMBERSHIP__USER_DATA__IDX);
+        return Arrays.<Index>asList(Indexes.NAMESPACE_MEMBERSHIP__NAMESPACE__IDX);
     }
 
     @Override
@@ -123,15 +123,11 @@ public class NamespaceMembership extends TableImpl<NamespaceMembershipRecord> {
 
     @Override
     public List<ForeignKey<NamespaceMembershipRecord, ?>> getReferences() {
-        return Arrays.<ForeignKey<NamespaceMembershipRecord, ?>>asList(Keys.NAMESPACE_MEMBERSHIP__FKGFHWHKNULA6DO2N6WYVQETM3N, Keys.NAMESPACE_MEMBERSHIP__FKNSAMEKUTXYWVSB3S1MJDCJKYP);
+        return Arrays.<ForeignKey<NamespaceMembershipRecord, ?>>asList(Keys.NAMESPACE_MEMBERSHIP__FKGFHWHKNULA6DO2N6WYVQETM3N);
     }
 
     public Namespace namespace() {
         return new Namespace(this, Keys.NAMESPACE_MEMBERSHIP__FKGFHWHKNULA6DO2N6WYVQETM3N);
-    }
-
-    public UserData userData() {
-        return new UserData(this, Keys.NAMESPACE_MEMBERSHIP__FKNSAMEKUTXYWVSB3S1MJDCJKYP);
     }
 
     @Override
@@ -165,7 +161,7 @@ public class NamespaceMembership extends TableImpl<NamespaceMembershipRecord> {
     // -------------------------------------------------------------------------
 
     @Override
-    public Row4<Long, String, Long, Long> fieldsRow() {
+    public Row4<Long, String, Long, String> fieldsRow() {
         return (Row4) super.fieldsRow();
     }
 }
