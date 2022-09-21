@@ -67,19 +67,11 @@ public class VSCodeAPI {
         var services = getVSCodeServices().iterator();
         while(resultItem.extensions.size() < size && services.hasNext()) {
             try {
-                var service = services.next();
-                var extensionCount = resultItem.extensions.size();
-                var subResult = service.extensionQuery(param, DEFAULT_PAGE_SIZE);
+                var subResult = services.next().extensionQuery(param, DEFAULT_PAGE_SIZE);
                 var subExtensions = subResult.results.get(0).extensions;
-                var subExtensionsCount = subExtensions != null ? subExtensions.size() : 0;
-                if (subExtensionsCount > 0) {
-                    int limit = size - extensionCount;
-                    mergeExtensionQueryResults(resultItem, subExtensions, limit);
-                }
+                var duplicatesCount = subExtensions != null ? mergeExtensionQueryResults(resultItem, subExtensions, size) : 0;
 
-                var mergedExtensionsCount = resultItem.extensions.size();
-                var subTotalCount = getTotalCount(subResult);
-                totalCount += subTotalCount - ((extensionCount + subExtensionsCount) - mergedExtensionsCount);
+                totalCount += getTotalCount(subResult) - duplicatesCount;
             } catch (NotFoundException | ResponseStatusException exc) {
                 // Try the next registry
             }
@@ -88,10 +80,11 @@ public class VSCodeAPI {
         return toExtensionQueryResult(resultItem, totalCount);
     }
 
-    private void mergeExtensionQueryResults(ExtensionQueryResult.ResultItem resultItem, List<ExtensionQueryResult.Extension> extensions, int limit) {
+    private int mergeExtensionQueryResults(ExtensionQueryResult.ResultItem resultItem, List<ExtensionQueryResult.Extension> extensions, int pageSize) {
+        var duplicates = 0;
         var previous = new ArrayList<>(resultItem.extensions);
         var extensionsIter = extensions.iterator();
-        while (extensionsIter.hasNext() && resultItem.extensions.size() < limit) {
+        while (extensionsIter.hasNext() && resultItem.extensions.size() < pageSize) {
             var next = extensionsIter.next();
             var noneMatch = previous.stream()
                     .noneMatch(prev -> {
@@ -102,8 +95,12 @@ public class VSCodeAPI {
 
             if (noneMatch) {
                 resultItem.extensions.add(next);
+            } else {
+                duplicates++;
             }
         }
+
+        return duplicates;
     }
 
     private long getTotalCount(ExtensionQueryResult subResult) {

@@ -15,8 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.collect.Iterables;
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
@@ -487,20 +485,14 @@ public class RegistryAPI {
 
         var options = new ISearchService.Options(query, category, targetPlatform, size, offset, sortOrder, sortBy, includeAllVersions);
         var result = new SearchResultJson();
+        result.offset = offset;
         result.extensions = new ArrayList<>(size);
-        for (var registry : getRegistries()) {
-            if (result.extensions.size() >= size) {
-                return ResponseEntity.ok(result);
-            }
+        var services = getRegistries().iterator();
+        while(result.extensions.size() < size && services.hasNext()) {
             try {
-                var subResult = registry.search(options);
-                if (subResult.extensions != null && subResult.extensions.size() > 0) {
-                    int limit = size - result.extensions.size();
-                    var subResultSize = mergeSearchResults(result, subResult.extensions, limit);
-                    result.offset += subResult.offset;
-                    offset = Math.max(offset - subResult.offset - subResultSize, 0);
-                }
-                result.totalSize += subResult.totalSize;
+                var subResult = services.next().search(options);
+                var duplicates = subResult.extensions != null ? mergeSearchResults(result, subResult.extensions, size) : 0;
+                result.totalSize += subResult.totalSize - duplicates;
             } catch (NotFoundException exc) {
                 // Try the next registry
             } catch (ErrorResultException exc) {
@@ -513,18 +505,23 @@ public class RegistryAPI {
                 .body(result);
     }
 
-    private int mergeSearchResults(SearchResultJson result, List<SearchEntryJson> entries, int limit) {
-        var previousResult = Iterables.limit(result.extensions, result.extensions.size());
+    private int mergeSearchResults(SearchResultJson result, List<SearchEntryJson> entries, int size) {
+        var previous = new ArrayList<>(result.extensions);
         var entriesIter = entries.iterator();
-        int mergedEntries = 0;
-        while (entriesIter.hasNext() && result.extensions.size() < limit) {
+        var duplicates = 0;
+        while (entriesIter.hasNext() && result.extensions.size() < size) {
             var next = entriesIter.next();
-            if (!Iterables.any(previousResult, ext -> ext.namespace.equals(next.namespace) && ext.name.equals(next.name))) {
+            var noneMatch = previous.stream()
+                    .noneMatch(prev -> prev.namespace.equals(next.namespace) && prev.name.equals(next.name));
+
+            if (noneMatch) {
                 result.extensions.add(next);
-                mergedEntries++;
+            } else {
+                duplicates++;
             }
         }
-        return mergedEntries;
+
+        return duplicates;
     }
 
     @GetMapping(
