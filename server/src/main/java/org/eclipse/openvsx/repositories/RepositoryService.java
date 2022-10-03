@@ -262,8 +262,13 @@ public class RepositoryService {
     public List<String> findAllSucceededAzureDownloadCountProcessedItemsByNameIn(List<String> names) {
         return downloadCountRepo.findAllSucceededAzureDownloadCountProcessedItemsByNameIn(names);
     }
-    public List<ExtensionDTO> findAllActiveExtensionDTOsByPublicId(Collection<String> publicIds, String... namespacesToExclude) {
-        return extensionDTORepo.findAllActiveByPublicId(publicIds, namespacesToExclude);
+
+    public List<Long> findAllActiveExtensionIdsByPublicId(Collection<String> publicIds, String... namespacesToExclude) {
+        return extensionDTORepo.findAllActiveIdsByPublicId(publicIds, namespacesToExclude);
+    }
+
+    public List<Long> findAllActiveExtensionIdsByExtensionName(Collection<String> extensionNames, String... namespacesToExclude) {
+        return extensionDTORepo.findAllActiveIdsByExtensionName(extensionNames, namespacesToExclude);
     }
 
     public ExtensionDTO findActiveExtensionDTO(String name, String namespaceName) {

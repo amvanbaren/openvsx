@@ -22,6 +22,16 @@
             <disk unit="MB">128</disk>
         </resources>
     </cache>
+    <cache alias="extenionquery.json">
+        <expiry>
+            <ttl unit="seconds">3600</ttl>
+        </expiry>
+        <resources>
+            <heap unit="entries">1024</heap>
+            <offheap unit="MB">32</offheap>
+            <disk unit="MB">128</disk>
+        </resources>
+    </cache>
     <cache alias="latest.extension.version">
         <expiry>
             <ttl unit="seconds">3600</ttl>

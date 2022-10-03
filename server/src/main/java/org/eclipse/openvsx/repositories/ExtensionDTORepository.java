@@ -33,13 +33,22 @@ public class ExtensionDTORepository {
         return fetch(findAllActive().and(EXTENSION.ID.in(ids)));
     }
 
-    public List<ExtensionDTO> findAllActiveByPublicId(Collection<String> publicIds, String... namespacesToExclude) {
-        var query = findAllActive().and(EXTENSION.PUBLIC_ID.in(publicIds));
+    public List<Long> findAllActiveIdsByPublicId(Collection<String> publicIds, String... namespacesToExclude) {
+        var query = findAllActiveIds().and(EXTENSION.PUBLIC_ID.in(publicIds));
         for(var namespaceToExclude : namespacesToExclude) {
             query = query.and(NAMESPACE.NAME.notEqual(namespaceToExclude));
         }
 
-        return fetch(query);
+        return query.fetch().map(r -> r.get(EXTENSION.ID));
+    }
+
+    public List<Long> findAllActiveIdsByExtensionName(Collection<String> extensionNames, String... namespacesToExclude) {
+        var query = findAllActiveIds().and(DSL.concat(NAMESPACE.NAME, DSL.val("."), EXTENSION.NAME).in(extensionNames));
+        for(var namespaceToExclude : namespacesToExclude) {
+            query = query.and(NAMESPACE.NAME.notEqual(namespaceToExclude));
+        }
+
+        return query.fetch().map(r -> r.get(EXTENSION.ID));
     }
 
     public ExtensionDTO findActiveByNameIgnoreCaseAndNamespaceNameIgnoreCase(String name, String namespaceName) {
@@ -61,19 +70,26 @@ public class ExtensionDTORepository {
                 .collect(Collectors.toMap(r -> r.get(EXTENSION_REVIEW.EXTENSION_ID), r -> r.get(count)));
     }
 
+    private SelectConditionStep<?> findAllActiveIds() {
+        return dsl.select(EXTENSION.ID)
+                .from(EXTENSION)
+                .join(NAMESPACE).on(NAMESPACE.ID.eq(EXTENSION.NAMESPACE_ID))
+                .where(EXTENSION.ACTIVE.eq(true));
+    }
+
     private SelectConditionStep<?> findAllActive() {
         return dsl.select(
-                    EXTENSION.ID,
-                    EXTENSION.PUBLIC_ID,
-                    EXTENSION.NAME,
-                    EXTENSION.AVERAGE_RATING,
-                    EXTENSION.DOWNLOAD_COUNT,
-                    EXTENSION.PUBLISHED_DATE,
-                    EXTENSION.LAST_UPDATED_DATE,
-                    NAMESPACE.ID,
-                    NAMESPACE.PUBLIC_ID,
-                    NAMESPACE.NAME
-                )
+                EXTENSION.ID,
+                EXTENSION.PUBLIC_ID,
+                EXTENSION.NAME,
+                EXTENSION.AVERAGE_RATING,
+                EXTENSION.DOWNLOAD_COUNT,
+                EXTENSION.PUBLISHED_DATE,
+                EXTENSION.LAST_UPDATED_DATE,
+                NAMESPACE.ID,
+                NAMESPACE.PUBLIC_ID,
+                NAMESPACE.NAME
+        )
                 .from(EXTENSION)
                 .join(NAMESPACE).on(NAMESPACE.ID.eq(EXTENSION.NAMESPACE_ID))
                 .where(EXTENSION.ACTIVE.eq(true));

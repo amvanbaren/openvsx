@@ -9,6 +9,8 @@
  * ****************************************************************************** */
 package org.eclipse.openvsx.cache;
 
+import org.apache.commons.collections4.map.HashedMap;
+import org.eclipse.openvsx.adapter.ExtensionQueryResult;
 import org.eclipse.openvsx.dto.ExtensionVersionDTO;
 import org.eclipse.openvsx.entities.Extension;
 import org.eclipse.openvsx.entities.ExtensionVersion;
@@ -19,8 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Component
 public class CacheService {
@@ -29,6 +30,7 @@ public class CacheService {
     public static final String CACHE_EXTENSION_JSON = "extension.json";
     public static final String CACHE_LATEST_EXTENSION_VERSION = "latest.extension.version";
     public static final String CACHE_LATEST_EXTENSION_VERSION_DTO = "latest.extension.version.dto";
+    public static final String CACHE_EXTENSION_QUERY_RESULT = "extenionquery.json";
     public static final String GENERATOR_EXTENSION_JSON = "extensionJsonCacheKeyGenerator";
     public static final String GENERATOR_LATEST_EXTENSION_VERSION = "latestExtensionVersionCacheKeyGenerator";
     public static final String GENERATOR_LATEST_EXTENSION_VERSION_DTO = "latestExtensionVersionDTOCacheKeyGenerator";
@@ -47,6 +49,9 @@ public class CacheService {
 
     @Autowired
     LatestExtensionVersionDTOCacheKeyGenerator latestExtensionVersionDTOCacheKeyGenerator;
+
+    @Autowired
+    ExtensionQueryExtensionCacheKeyGenerator extensionQueryExtensionCacheKeyGenerator;
 
     public void evictExtensionJsons(UserData user) {
         repositoryService.findVersions(user)
@@ -99,6 +104,34 @@ public class CacheService {
                 var key = latestExtensionVersionDTOCacheKeyGenerator.generate(null, null, extension.getId(), type);
                 cache.evictIfPresent(key);
             }
+        }
+    }
+
+    public Map<Long, ExtensionQueryResult.Extension> getExtensionQueryResults(List<Long> extensionIds, String targetPlatform, int flags) {
+        var cache = cacheManager.getCache(CACHE_EXTENSION_QUERY_RESULT);
+        if(cache == null) {
+            return Collections.emptyMap();
+        }
+
+        var results = new HashedMap<Long, ExtensionQueryResult.Extension>();
+        for(var id : extensionIds) {
+            var key =  extensionQueryExtensionCacheKeyGenerator.generate(id, targetPlatform, flags);
+            var result = cache.get(key, ExtensionQueryResult.Extension.class);
+            results.put(id, result);
+        }
+
+        return results;
+    }
+
+    public void putExtensionQueryResults(Map<Long, ExtensionQueryResult.Extension> extensionQueryResults, String targetPlatform, int flags) {
+        var cache = cacheManager.getCache(CACHE_EXTENSION_QUERY_RESULT);
+        if(cache == null) {
+            return;
+        }
+
+        for(var entry : extensionQueryResults.entrySet()) {
+            var key =  extensionQueryExtensionCacheKeyGenerator.generate(entry.getKey(), targetPlatform, flags);
+            cache.put(key, entry.getValue());
         }
     }
 }

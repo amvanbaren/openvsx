@@ -9,6 +9,7 @@
  ********************************************************************************/
 package org.eclipse.openvsx.adapter;
 
+import java.io.Serializable;
 import java.util.List;
 
 // Keep interfaces in sync with
@@ -22,7 +23,7 @@ public class ExtensionQueryResult {
         public List<ResultMetadata> resultMetadata;
     }
 
-    public static class Extension {
+    public static class Extension implements Serializable {
         public static final String FLAG_PREVIEW = "preview";
 
         public String extensionId;
@@ -40,7 +41,7 @@ public class ExtensionQueryResult {
         public String flags;
     }
 
-    public static class Publisher {
+    public static class Publisher implements Serializable {
         public String displayName;
         public String publisherId;
         public String publisherName;
@@ -48,7 +49,7 @@ public class ExtensionQueryResult {
         public Boolean isDomainVerified;
     }
 
-    public static class ExtensionVersion {
+    public static class ExtensionVersion implements Serializable {
         public String version;
         public String lastUpdated;
         public String assetUri;
@@ -76,7 +77,7 @@ public class ExtensionQueryResult {
         }
     }
 
-    public static class ExtensionFile {
+    public static class ExtensionFile implements Serializable {
         public static final String FILE_ICON = "Microsoft.VisualStudio.Services.Icons.Default";
         public static final String FILE_DETAILS = "Microsoft.VisualStudio.Services.Content.Details";
         public static final String FILE_CHANGELOG = "Microsoft.VisualStudio.Services.Content.Changelog";
@@ -89,7 +90,7 @@ public class ExtensionQueryResult {
         public String source;
     }
 
-    public static class Property {
+    public static class Property implements Serializable {
         public static final String PROP_REPOSITORY = "Microsoft.VisualStudio.Services.Links.Source";
         public static final String PROP_DEPENDENCY = "Microsoft.VisualStudio.Code.ExtensionDependencies";
         public static final String PROP_EXTENSION_PACK = "Microsoft.VisualStudio.Code.ExtensionPack";
@@ -104,7 +105,7 @@ public class ExtensionQueryResult {
         public String value;
     }
 
-    public static class Statistic {
+    public static class Statistic implements Serializable {
         public static final String STAT_INSTALL = "install";
         public static final String STAT_AVERAGE_RATING = "averagerating";
         public static final String STAT_RATING_COUNT = "ratingcount";

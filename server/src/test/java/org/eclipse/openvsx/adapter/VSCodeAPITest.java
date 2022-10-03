@@ -11,6 +11,7 @@ package org.eclipse.openvsx.adapter;
 
 import static org.eclipse.openvsx.entities.FileResource.*;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -72,7 +73,7 @@ import javax.persistence.EntityManager;
 @MockBean({
     ClientRegistrationRepository.class, GoogleCloudStorageService.class, AzureBlobStorageService.class,
     AzureDownloadCountService.class, LockProvider.class, CacheService.class, UpstreamVSCodeService.class,
-    VSCodeIdService.class, EntityManager.class, EclipseService.class
+    VSCodeIdService.class, EntityManager.class, EclipseService.class, CacheService.class
 })
 public class VSCodeAPITest {
 
@@ -540,15 +541,19 @@ public class VSCodeAPITest {
         Mockito.when(repositories.findAllActiveExtensionDTOsById(List.of(entry1.id)))
                 .thenReturn(results);
 
-        var publicIds = Set.of(extension.getPublicId());
-        Mockito.when(repositories.findAllActiveExtensionDTOsByPublicId(publicIds, builtInExtensionNamespace))
-                .thenReturn(results);
-
         var ids = List.of(extension.getId());
+        var publicIds = Set.of(extension.getPublicId());
+        Mockito.when(repositories.findAllActiveExtensionIdsByPublicId(publicIds, builtInExtensionNamespace))
+                .thenReturn(ids);
+
         Mockito.when(repositories.findAllActiveReviewCountsByExtensionId(ids))
                 .thenReturn(Map.of(extension.getId(), 10));
         Mockito.when(repositories.findActiveExtensionDTO(extension.getName(), extension.getNamespace().getName()))
                 .thenReturn(extension);
+
+        var extensionNames = Set.of(extension.getNamespace().getName() + "." + extension.getName());
+        Mockito.when(repositories.findAllActiveExtensionIdsByExtensionName(extensionNames, builtInExtensionNamespace))
+                .thenReturn(ids);
 
         mockExtensionVersionDTOs(extension, targetPlatform, targetPlatform);
         return extension;
@@ -776,6 +781,11 @@ public class VSCodeAPITest {
         @Bean
         LatestExtensionVersionDTOCacheKeyGenerator latestExtensionVersionDTOCacheKeyGenerator() {
             return new LatestExtensionVersionDTOCacheKeyGenerator();
+        }
+
+        @Bean
+        ExtensionQueryService extensionQueryService() {
+            return new ExtensionQueryService();
         }
     }
 
