@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StopWatch;
 
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
@@ -75,6 +76,7 @@ public class AzureDownloadCountProcessor {
             downloadCounts.increaseDownloadCount(extension, downloads);
             logger.info("increased downloads for {}.{} by {}", extension.getNamespace().getName(), extension.getName(), downloads.size());
         });
+        LOGGER.info("<< processDownloadCounts took: {} ms", stopWatch.getTotalTimeMillis());
     }
 
     public List<String> processedItems(List<String> blobNames) {
