@@ -65,7 +65,6 @@ public class ExtensionService {
 
             download = processor.getBinary(extVersion);
         }
-
         publishHandler.publishAsync(download, extensionFile, this);
         return extVersion;
     }
