@@ -36,7 +36,7 @@ public class ExtractResourcesJobRequestHandler implements JobRequestHandler<Extr
         var entry = service.getDownload(extVersion);
         var extensionFile = service.getExtensionFile(entry);
         var download = entry.getKey();
-        try(var extProcessor = new ExtensionProcessor(extensionFile)) {
+        try (var extProcessor = new ExtensionProcessor(extensionFile)) {
             extProcessor.processEachResource(download.getExtension(), (resource) -> {
                 resource.setStorageType(download.getStorageType());
                 service.uploadResource(resource);
