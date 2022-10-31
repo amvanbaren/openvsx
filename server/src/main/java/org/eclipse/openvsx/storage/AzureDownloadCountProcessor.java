@@ -76,7 +76,7 @@ public class AzureDownloadCountProcessor {
             downloadCounts.increaseDownloadCount(extension, downloads);
             logger.info("increased downloads for {}.{} by {}", extension.getNamespace().getName(), extension.getName(), downloads.size());
         });
-        LOGGER.info("<< processDownloadCounts took: {} ms", stopWatch.getTotalTimeMillis());
+        LOGGER.info("<< processDownloadCounts");
     }
 
     public List<String> processedItems(List<String> blobNames) {

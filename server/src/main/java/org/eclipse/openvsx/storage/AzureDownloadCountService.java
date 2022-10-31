@@ -145,8 +145,6 @@ public class AzureDownloadCountService {
     }
 
     private Map<String, List<LocalDateTime>> processBlobItem(String blobName) {
-        var stopWatch = new StopWatch();
-        stopWatch.start();
         Path downloadsTempFile;
         try {
             downloadsTempFile = Files.createTempFile("azure-downloads-", ".json");
@@ -155,45 +153,29 @@ public class AzureDownloadCountService {
         }
 
         getContainerClient().getBlobClient(blobName).downloadToFile(downloadsTempFile.toAbsolutePath().toString(), true);
-        stopWatch.stop();
-        logger.info("downloadToFile took: {} ms", stopWatch.getLastTaskTimeMillis());
         try (var reader = Files.newBufferedReader(downloadsTempFile)) {
             return reader.lines()
                     .map(line -> {
-                        stopWatch.start();
                         try {
-                            var json = getObjectMapper().readTree(line);
-                            stopWatch.stop();
-                            logger.info("readTree took: {} ms", stopWatch.getLastTaskTimeMillis());
-                            return json;
+                            return getObjectMapper().readTree(line);
                         } catch (JsonProcessingException e) {
                             throw new RuntimeException(e);
                         }
                     })
                     .filter(node -> {
-                        stopWatch.start();
                         var operationName = node.get("operationName").asText();
                         var statusCode = node.get("statusCode").asInt();
                         var uri = node.get("uri").asText();
                         return operationName.equals("GetBlob") && statusCode == 200 && uri.endsWith(".vsix");
                     }).map(node -> {
-                        stopWatch.start();
                         var uri = node.get("uri").asText();
                         var pathParams = uri.substring(storageServiceEndpoint.length()).split("/");
-                        var entry = new AbstractMap.SimpleEntry<>(pathParams, node.get("time").asText());
-                        stopWatch.stop();
-                        logger.info("get pathParams took: {} ms", stopWatch.getLastTaskTimeMillis());
-                        return entry;
+                        return new AbstractMap.SimpleEntry<>(pathParams, node.get("time").asText());
                     })
                     .filter(entry -> {
-                        stopWatch.start();
-                        var isContainer = storageBlobContainer.equals(entry.getKey()[1]);
-                        stopWatch.stop();
-                        logger.info("isContainer took: {} ms", stopWatch.getLastTaskTimeMillis());
-                        return isContainer;
+                        return storageBlobContainer.equals(entry.getKey()[1]);
                     })
                     .map(entry -> {
-                        stopWatch.start();
                         var pathParams = entry.getKey();
                         var fileName = UriUtils.decode(pathParams[pathParams.length - 1], StandardCharsets.UTF_8).toUpperCase();
                         var time = LocalDateTime.parse(entry.getValue(), DateTimeFormatter.ISO_ZONED_DATE_TIME);
