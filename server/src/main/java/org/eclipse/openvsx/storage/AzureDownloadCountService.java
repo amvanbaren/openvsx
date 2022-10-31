@@ -172,9 +172,7 @@ public class AzureDownloadCountService {
                         var pathParams = uri.substring(storageServiceEndpoint.length()).split("/");
                         return new AbstractMap.SimpleEntry<>(pathParams, node.get("time").asText());
                     })
-                    .filter(entry -> {
-                        return storageBlobContainer.equals(entry.getKey()[1]);
-                    })
+                    .filter(entry -> storageBlobContainer.equals(entry.getKey()[1]))
                     .map(entry -> {
                         var pathParams = entry.getKey();
                         var fileName = UriUtils.decode(pathParams[pathParams.length - 1], StandardCharsets.UTF_8).toUpperCase();
