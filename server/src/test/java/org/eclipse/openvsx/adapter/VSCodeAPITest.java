@@ -70,8 +70,8 @@ import javax.persistence.EntityManager;
 @AutoConfigureWebClient
 @MockBean({
     ClientRegistrationRepository.class, GoogleCloudStorageService.class, AzureBlobStorageService.class,
-    AzureDownloadCountService.class, CacheService.class, UpstreamVSCodeService.class,
-    VSCodeIdService.class, EntityManager.class, EclipseService.class
+    AzureDownloadCountService.class, CacheService.class, DownloadCountService.class,
+    UpstreamVSCodeService.class, VSCodeIdService.class, EntityManager.class, EclipseService.class
 })
 public class VSCodeAPITest {
 
