@@ -59,8 +59,8 @@ public class AdminAPI {
     SearchUtilService search;
 
     @GetMapping(
-            path = "/admin/report",
-            produces = MediaType.APPLICATION_JSON_VALUE
+        path = "/admin/report",
+        produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<AdminStatisticsJson> getReportJson(
             @RequestParam("token") String tokenValue,
@@ -76,8 +76,8 @@ public class AdminAPI {
     }
 
     @GetMapping(
-            path = "/admin/report",
-            produces = "text/csv"
+        path = "/admin/report",
+        produces = "text/csv"
     )
     public ResponseEntity<String> getReportCsv(
             @RequestParam("token") String tokenValue,

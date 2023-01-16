@@ -329,11 +329,11 @@ public class AdminService {
             var extensionsByRating = repositories.countActiveExtensionsGroupedByExtensionReviewRating(endExclusive);
             var publishersByExtensionsPublished = repositories.countActiveExtensionPublishersGroupedByExtensionsPublished(endExclusive);
 
-            var limit = 10;
-            var topMostActivePublishingUsers = repositories.topMostActivePublishingUsers(endExclusive, limit);
-            var topNamespaceExtensions = repositories.topNamespaceExtensions(endExclusive, limit);
-            var topNamespaceExtensionVersions = repositories.topNamespaceExtensionVersions(endExclusive, limit);
-            var topMostDownloadedExtensions = repositories.topMostDownloadedExtensions(endExclusive, limit);
+//            var limit = 10;
+//            var topMostActivePublishingUsers = repositories.topMostActivePublishingUsers(endExclusive, limit);
+//            var topNamespaceExtensions = repositories.topNamespaceExtensions(endExclusive, limit);
+//            var topNamespaceExtensionVersions = repositories.topNamespaceExtensionVersions(endExclusive, limit);
+//            var topMostDownloadedExtensions = repositories.topMostDownloadedExtensions(endExclusive, limit);
 
             statistics = new AdminStatistics();
             statistics.setYear(year);
@@ -346,10 +346,10 @@ public class AdminService {
             statistics.setNamespaceOwners(namespaceOwners);
             statistics.setExtensionsByRating(extensionsByRating);
             statistics.setPublishersByExtensionsPublished(publishersByExtensionsPublished);
-            statistics.setTopMostActivePublishingUsers(topMostActivePublishingUsers);
-            statistics.setTopNamespaceExtensions(topNamespaceExtensions);
-            statistics.setTopNamespaceExtensionVersions(topNamespaceExtensionVersions);
-            statistics.setTopMostDownloadedExtensions(topMostDownloadedExtensions);
+//            statistics.setTopMostActivePublishingUsers(topMostActivePublishingUsers);
+//            statistics.setTopNamespaceExtensions(topNamespaceExtensions);
+//            statistics.setTopNamespaceExtensionVersions(topNamespaceExtensionVersions);
+//            statistics.setTopMostDownloadedExtensions(topMostDownloadedExtensions);
 
             if(!currentYearAndMonth) {
                 // archive statistics for quicker lookup next time

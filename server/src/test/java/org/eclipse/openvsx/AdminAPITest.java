@@ -886,19 +886,19 @@ public class AdminAPITest {
         Mockito.when(repositories.topMostDownloadedExtensions(endExclusive, 10)).thenReturn(topMostDownloadedExtensions);
 
         var values = List.<Object>of(year, month, extensions, downloads, downloadsTotal, publishers,
-                averageReviewsPerExtension, namespaceOwners, 0, 0, 8000, 0, 1123, 6590, 815, 543, 93, 82,
-                1239, 48, 9, 932, 234, 67, 4378, 3847, 1237);
+                averageReviewsPerExtension, namespaceOwners, 0, 0, 8000, 0, 1123, 6590, 815);//, 543, 93, 82,
+                //1239, 48, 9, 932, 234, 67, 4378, 3847, 1237);
         mockMvc.perform(get("/admin/report?token={token}&year={year}&month={month}", token.getValue(), year, month)
                 .header(HttpHeaders.ACCEPT, "text/csv"))
                 .andExpect(status().isOk())
                 .andExpect(content().string("year,month,extensions,downloads,downloads_total,publishers," +
                         "average_reviews_per_extension,namespace_owners,extensions_by_rating_1,extensions_by_rating_2," +
                         "extensions_by_rating_3,extensions_by_rating_4,extensions_by_rating_5," +
-                        "publishers_published_extensions_1,publishers_published_extensions_3," +
-                        "most_active_publishing_users_u_bar,most_active_publishing_users_u_foo,most_active_publishing_users_u_baz," +
-                        "namespace_extensions_n_baz,namespace_extensions_n_bar,namespace_extensions_n_foo," +
-                        "namespace_extension_versions_nv_baz,namespace_extension_versions_nv_foo,namespace_extension_versions_nv_bar," +
-                        "most_downloaded_extensions_foo.baz,most_downloaded_extensions_foo.bar,most_downloaded_extensions_bar.foo\n" +
+                        "publishers_published_extensions_1,publishers_published_extensions_3\n" +
+//                        "most_active_publishing_users_u_bar,most_active_publishing_users_u_foo,most_active_publishing_users_u_baz," +
+//                        "namespace_extensions_n_baz,namespace_extensions_n_bar,namespace_extensions_n_foo," +
+//                        "namespace_extension_versions_nv_baz,namespace_extension_versions_nv_foo,namespace_extension_versions_nv_bar," +
+//                        "most_downloaded_extensions_foo.baz,most_downloaded_extensions_foo.bar,most_downloaded_extensions_bar.foo\n" +
                         values.stream().map(Object::toString).collect(Collectors.joining(","))));
     }
 
@@ -982,49 +982,49 @@ public class AdminAPITest {
                     publishers1.publishers = 6590;
                     s.publishersByExtensionsPublished = List.of(publishers3, publishers1);
 
-                    var activePublisher1 = new AdminStatisticsJson.TopMostActivePublishingUsers();
-                    activePublisher1.userLoginName = "u_bar";
-                    activePublisher1.publishedExtensionVersions = 543;
-                    var activePublisher2 = new AdminStatisticsJson.TopMostActivePublishingUsers();
-                    activePublisher2.userLoginName = "u_foo";
-                    activePublisher2.publishedExtensionVersions = 93;
-                    var activePublisher3 = new AdminStatisticsJson.TopMostActivePublishingUsers();
-                    activePublisher3.userLoginName = "u_baz";
-                    activePublisher3.publishedExtensionVersions = 82;
-                    s.topMostActivePublishingUsers = List.of(activePublisher1, activePublisher2, activePublisher3);
+//                    var activePublisher1 = new AdminStatisticsJson.TopMostActivePublishingUsers();
+//                    activePublisher1.userLoginName = "u_bar";
+//                    activePublisher1.publishedExtensionVersions = 543;
+//                    var activePublisher2 = new AdminStatisticsJson.TopMostActivePublishingUsers();
+//                    activePublisher2.userLoginName = "u_foo";
+//                    activePublisher2.publishedExtensionVersions = 93;
+//                    var activePublisher3 = new AdminStatisticsJson.TopMostActivePublishingUsers();
+//                    activePublisher3.userLoginName = "u_baz";
+//                    activePublisher3.publishedExtensionVersions = 82;
+//                    s.topMostActivePublishingUsers = List.of(activePublisher1, activePublisher2, activePublisher3);
 
-                    var namespaceExtensions1 = new AdminStatisticsJson.TopNamespaceExtensions();
-                    namespaceExtensions1.namespace = "n_baz";
-                    namespaceExtensions1.extensions = 1239;
-                    var namespaceExtensions2 = new AdminStatisticsJson.TopNamespaceExtensions();
-                    namespaceExtensions2.namespace = "n_bar";
-                    namespaceExtensions2.extensions = 48;
-                    var namespaceExtensions3 = new AdminStatisticsJson.TopNamespaceExtensions();
-                    namespaceExtensions3.namespace = "n_foo";
-                    namespaceExtensions3.extensions = 9;
-                    s.topNamespaceExtensions = List.of(namespaceExtensions1, namespaceExtensions2, namespaceExtensions3);
+//                    var namespaceExtensions1 = new AdminStatisticsJson.TopNamespaceExtensions();
+//                    namespaceExtensions1.namespace = "n_baz";
+//                    namespaceExtensions1.extensions = 1239;
+//                    var namespaceExtensions2 = new AdminStatisticsJson.TopNamespaceExtensions();
+//                    namespaceExtensions2.namespace = "n_bar";
+//                    namespaceExtensions2.extensions = 48;
+//                    var namespaceExtensions3 = new AdminStatisticsJson.TopNamespaceExtensions();
+//                    namespaceExtensions3.namespace = "n_foo";
+//                    namespaceExtensions3.extensions = 9;
+//                    s.topNamespaceExtensions = List.of(namespaceExtensions1, namespaceExtensions2, namespaceExtensions3);
 
-                    var namespaceExtensionVersions1 = new AdminStatisticsJson.TopNamespaceExtensionVersions();
-                    namespaceExtensionVersions1.namespace = "nv_baz";
-                    namespaceExtensionVersions1.extensionVersions = 932;
-                    var namespaceExtensionVersions2 = new AdminStatisticsJson.TopNamespaceExtensionVersions();
-                    namespaceExtensionVersions2.namespace = "nv_foo";
-                    namespaceExtensionVersions2.extensionVersions = 234;
-                    var namespaceExtensionVersions3 = new AdminStatisticsJson.TopNamespaceExtensionVersions();
-                    namespaceExtensionVersions3.namespace = "nv_bar";
-                    namespaceExtensionVersions3.extensionVersions = 67;
-                    s.topNamespaceExtensionVersions = List.of(namespaceExtensionVersions1, namespaceExtensionVersions2, namespaceExtensionVersions3);
+//                    var namespaceExtensionVersions1 = new AdminStatisticsJson.TopNamespaceExtensionVersions();
+//                    namespaceExtensionVersions1.namespace = "nv_baz";
+//                    namespaceExtensionVersions1.extensionVersions = 932;
+//                    var namespaceExtensionVersions2 = new AdminStatisticsJson.TopNamespaceExtensionVersions();
+//                    namespaceExtensionVersions2.namespace = "nv_foo";
+//                    namespaceExtensionVersions2.extensionVersions = 234;
+//                    var namespaceExtensionVersions3 = new AdminStatisticsJson.TopNamespaceExtensionVersions();
+//                    namespaceExtensionVersions3.namespace = "nv_bar";
+//                    namespaceExtensionVersions3.extensionVersions = 67;
+//                    s.topNamespaceExtensionVersions = List.of(namespaceExtensionVersions1, namespaceExtensionVersions2, namespaceExtensionVersions3);
 
-                    var mostDownloadedExtensions1 = new AdminStatisticsJson.TopMostDownloadedExtensions();
-                    mostDownloadedExtensions1.extensionIdentifier = "foo.baz";
-                    mostDownloadedExtensions1.downloads = 4378L;
-                    var mostDownloadedExtensions2 = new AdminStatisticsJson.TopMostDownloadedExtensions();
-                    mostDownloadedExtensions2.extensionIdentifier = "foo.bar";
-                    mostDownloadedExtensions2.downloads = 3847L;
-                    var mostDownloadedExtensions3 = new AdminStatisticsJson.TopMostDownloadedExtensions();
-                    mostDownloadedExtensions3.extensionIdentifier = "bar.foo";
-                    mostDownloadedExtensions3.downloads = 1237L;
-                    s.topMostDownloadedExtensions = List.of(mostDownloadedExtensions1, mostDownloadedExtensions2, mostDownloadedExtensions3);
+//                    var mostDownloadedExtensions1 = new AdminStatisticsJson.TopMostDownloadedExtensions();
+//                    mostDownloadedExtensions1.extensionIdentifier = "foo.baz";
+//                    mostDownloadedExtensions1.downloads = 4378L;
+//                    var mostDownloadedExtensions2 = new AdminStatisticsJson.TopMostDownloadedExtensions();
+//                    mostDownloadedExtensions2.extensionIdentifier = "foo.bar";
+//                    mostDownloadedExtensions2.downloads = 3847L;
+//                    var mostDownloadedExtensions3 = new AdminStatisticsJson.TopMostDownloadedExtensions();
+//                    mostDownloadedExtensions3.extensionIdentifier = "bar.foo";
+//                    mostDownloadedExtensions3.downloads = 1237L;
+//                    s.topMostDownloadedExtensions = List.of(mostDownloadedExtensions1, mostDownloadedExtensions2, mostDownloadedExtensions3);
                 })));
     }
 

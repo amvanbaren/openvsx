@@ -12,10 +12,7 @@ package org.eclipse.openvsx.entities;
 import org.eclipse.openvsx.json.AdminStatisticsJson;
 
 import javax.persistence.*;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Entity
@@ -41,32 +38,32 @@ public class AdminStatistics {
 
     long namespaceOwners;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @MapKeyColumn(name = "rating")
     @Column(name = "extensions")
     Map<Integer, Integer> extensionsByRating;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @MapKeyColumn(name = "extensions_published")
     @Column(name = "publishers")
     Map<Integer, Integer> publishersByExtensionsPublished;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @MapKeyColumn(name = "login_name")
     @Column(name = "extension_version_count")
     Map<String, Integer> topMostActivePublishingUsers;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @MapKeyColumn(name = "namespace")
     @Column(name = "extension_count")
     Map<String, Integer> topNamespaceExtensions;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @MapKeyColumn(name = "namespace")
     @Column(name = "extension_version_count")
     Map<String, Integer> topNamespaceExtensionVersions;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @MapKeyColumn(name = "extension_identifier")
     @Column(name = "downloads")
     Map<String, Long> topMostDownloadedExtensions;
@@ -101,6 +98,10 @@ public class AdminStatistics {
     }
 
     private void topMapToCsv(List<String> headers, List<Number> values, Map<String, ? extends Number> topMap, String headerPrefix) {
+        if(topMap == null) {
+            return;
+        }
+        
         topMap.entrySet().stream()
                 .sorted(Comparator.<Map.Entry<String, ? extends Number>>comparingLong(entry -> entry.getValue().longValue()).reversed())
                 .forEach(entry -> {
@@ -130,6 +131,10 @@ public class AdminStatistics {
     }
 
     private List<AdminStatisticsJson.ExtensionsByRating> mapExtensionsByRating() {
+        if(extensionsByRating == null) {
+            return Collections.emptyList();
+        }
+
         return extensionsByRating.entrySet().stream()
                 .map(entry -> {
                     var mapping = new AdminStatisticsJson.ExtensionsByRating();
@@ -142,6 +147,10 @@ public class AdminStatistics {
     }
 
     private List<AdminStatisticsJson.PublishersByExtensionsPublished> mapPublishersByExtensionsPublished() {
+        if(publishersByExtensionsPublished == null) {
+            return Collections.emptyList();
+        }
+
         return publishersByExtensionsPublished.entrySet().stream()
                 .map(entry -> {
                     var mapping = new AdminStatisticsJson.PublishersByExtensionsPublished();
@@ -154,6 +163,10 @@ public class AdminStatistics {
     }
 
     private List<AdminStatisticsJson.TopMostActivePublishingUsers> mapTopMostActivePublishingUsers() {
+        if(topMostActivePublishingUsers == null) {
+            return Collections.emptyList();
+        }
+
         return topMostActivePublishingUsers.entrySet().stream()
                 .map(entry -> {
                     var mapping = new AdminStatisticsJson.TopMostActivePublishingUsers();
@@ -166,6 +179,10 @@ public class AdminStatistics {
     }
 
     private List<AdminStatisticsJson.TopNamespaceExtensions> mapTopNamespaceExtensions() {
+        if(topNamespaceExtensions == null) {
+            return Collections.emptyList();
+        }
+
         return topNamespaceExtensions.entrySet().stream()
                 .map(entry -> {
                     var mapping = new AdminStatisticsJson.TopNamespaceExtensions();
@@ -183,6 +200,10 @@ public class AdminStatistics {
         public int extensionVersions;
     }
     private List<AdminStatisticsJson.TopNamespaceExtensionVersions> mapTopNamespaceExtensionVersions() {
+        if(topNamespaceExtensionVersions == null) {
+            return Collections.emptyList();
+        }
+
         return topNamespaceExtensionVersions.entrySet().stream()
                 .map(entry -> {
                     var mapping = new AdminStatisticsJson.TopNamespaceExtensionVersions();
@@ -195,6 +216,10 @@ public class AdminStatistics {
     }
 
     private List<AdminStatisticsJson.TopMostDownloadedExtensions> mapTopMostDownloadedExtensions() {
+        if(topMostDownloadedExtensions == null) {
+            return Collections.emptyList();
+        }
+
         return topMostDownloadedExtensions.entrySet().stream()
                 .map(entry -> {
                     var mapping = new AdminStatisticsJson.TopMostDownloadedExtensions();
