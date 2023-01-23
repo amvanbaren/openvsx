@@ -107,6 +107,12 @@ bucket4j:
               unit: seconds
 
 ovsx:
+  admins:
+    login-names:
+      - amvanbaren
+      - kineticsquid
+  database:
+    clear-on-start: true
   databasesearch:
     enabled: false
   elasticsearch:

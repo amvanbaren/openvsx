@@ -11,10 +11,12 @@ package org.eclipse.openvsx;
 
 import org.eclipse.openvsx.web.LongRunningRequestFilter;
 import org.eclipse.openvsx.web.ShallowEtagHeaderFilter;
+import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.cache.annotation.EnableCaching;
@@ -41,6 +43,18 @@ public class RegistryApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(RegistryApplication.class, args);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "ovsx.database.clear-on-start", havingValue = "true")
+    public FlywayMigrationStrategy cleanMigrateStrategy() {
+        return new FlywayMigrationStrategy() {
+            @Override
+            public void migrate(Flyway flyway) {
+                flyway.clean();
+                flyway.migrate();
+            }
+        };
     }
 
 	@Bean
