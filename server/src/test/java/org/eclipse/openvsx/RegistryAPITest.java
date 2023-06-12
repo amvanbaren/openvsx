@@ -22,6 +22,7 @@ import org.eclipse.openvsx.json.*;
 import org.eclipse.openvsx.publish.ExtensionVersionIntegrityService;
 import org.eclipse.openvsx.publish.PublishExtensionVersionHandler;
 import org.eclipse.openvsx.publish.PublishExtensionVersionService;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.ExtensionSearch;
 import org.eclipse.openvsx.search.ISearchService;
@@ -56,7 +57,6 @@ import org.springframework.data.util.Streamable;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.persistence.EntityManager;
 import java.io.ByteArrayOutputStream;
@@ -82,7 +82,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @MockBean({
     ClientRegistrationRepository.class, UpstreamRegistryService.class, GoogleCloudStorageService.class,
     AzureBlobStorageService.class, VSCodeIdService.class, AzureDownloadCountService.class, CacheService.class,
-    EclipseService.class, PublishExtensionVersionService.class, SimpleMeterRegistry.class
+    EclipseService.class, PublishExtensionVersionService.class, SimpleMeterRegistry.class, EntityService.class
 })
 public class RegistryAPITest {
 
@@ -2262,11 +2262,6 @@ public class RegistryAPITest {
     
     @TestConfiguration
     static class TestConfig {
-        @Bean
-        TransactionTemplate transactionTemplate() {
-            return new MockTransactionTemplate();
-        }
-
         @Bean
         OAuth2UserServices oauth2UserServices() {
             return new OAuth2UserServices();

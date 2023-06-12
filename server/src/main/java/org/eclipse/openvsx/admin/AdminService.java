@@ -19,6 +19,7 @@ import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.json.*;
 import org.eclipse.openvsx.migration.HandlerJobRequest;
 import org.eclipse.openvsx.migration.MigrationRunner;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.SearchUtilService;
 import org.eclipse.openvsx.storage.StorageUtilService;
@@ -55,6 +56,9 @@ public class AdminService {
 
     @Autowired
     EntityManager entityManager;
+
+    @Autowired
+    EntityService entities;
 
     @Autowired
     UserService users;
@@ -195,7 +199,6 @@ public class AdminService {
         return result;
     }
 
-    @Transactional(rollbackOn = ErrorResultException.class)
     public ResultJson createNamespace(NamespaceJson json) {
         var namespaceIssue = validator.validateNamespace(json.name);
         if (namespaceIssue.isPresent()) {
@@ -208,7 +211,7 @@ public class AdminService {
         }
         namespace = new Namespace();
         namespace.setName(json.name);
-        entityManager.persist(namespace);
+        entities.insert(namespace);
         return ResultJson.success("Created namespace " + namespace.getName());
     }
 
@@ -342,14 +345,13 @@ public class AdminService {
         return user;
     }
 
-    @Transactional
     public void logAdminAction(UserData admin, ResultJson result) {
         if (result.success != null) {
             var log = new PersistedLog();
             log.setUser(admin);
             log.setTimestamp(TimeUtil.getCurrentUTC());
             log.setMessage(result.success);
-            entityManager.persist(log);
+            entities.insert(log);
         }
     }
 

@@ -9,16 +9,11 @@
  ********************************************************************************/
 package org.eclipse.openvsx.security;
 
-import java.time.Instant;
-import java.util.Arrays;
-
-import javax.persistence.EntityManager;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.eclipse.openvsx.entities.AuthToken;
 import org.eclipse.openvsx.entities.UserData;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.json.simple.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,9 +27,12 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AccessToken.TokenType;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+
+import javax.persistence.EntityManager;
+import java.time.Instant;
+import java.util.List;
 
 @Component
 public class TokenService {
@@ -42,7 +40,7 @@ public class TokenService {
     protected final Logger logger = LoggerFactory.getLogger(TokenService.class);
 
     @Autowired
-    TransactionTemplate transactions;
+    EntityService entities;
 
     @Autowired
     EntityManager entityManager;
@@ -102,19 +100,15 @@ public class TokenService {
     }
 
     private AuthToken updateGitHubToken(UserData userData, AuthToken token) {
-        return transactions.execute(status -> {
-            userData.setGithubToken(token);
-            entityManager.merge(userData);
-            return token;
-        });
+        userData.setGithubToken(token);
+        entities.update(userData);
+        return token;
     }
 
     private AuthToken updateEclipseToken(UserData userData, AuthToken token) {
-        return transactions.execute(status -> {
-            userData.setEclipseToken(token);
-            entityManager.merge(userData);
-            return token;
-        });
+        userData.setEclipseToken(token);
+        entities.update(userData);
+        return token;
     }
 
     public AuthToken getActiveToken(UserData userData, String registrationId) {
@@ -149,9 +143,7 @@ public class TokenService {
             return false;
         if (token.accessToken != null && !isExpired(token.expiresAt))
             return true;
-        if (token.refreshToken != null && !isExpired(token.refreshExpiresAt))
-            return true;
-        return false;
+        return token.refreshToken != null && !isExpired(token.refreshExpiresAt);
     }
 
     private boolean isExpired(Instant instant) {
@@ -164,7 +156,7 @@ public class TokenService {
 
         var headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
         var data = new JsonObject();
         data.put("grant_type", "refresh_token");
@@ -172,7 +164,7 @@ public class TokenService {
         data.put("client_secret", reg.getClientSecret());
         data.put("refresh_token", token.refreshToken != null ? token.refreshToken : token.accessToken);
 
-        var request = new HttpEntity<String>(data.toJson(), headers);
+        var request = new HttpEntity<>(data.toJson(), headers);
         var restTemplate = new RestTemplate();
         var objectMapper = new ObjectMapper();
         try {

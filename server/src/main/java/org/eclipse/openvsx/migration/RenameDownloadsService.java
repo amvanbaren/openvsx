@@ -10,6 +10,7 @@
 package org.eclipse.openvsx.migration;
 
 import org.eclipse.openvsx.entities.FileResource;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.util.NamingUtil;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,11 +23,10 @@ import javax.transaction.Transactional;
 public class RenameDownloadsService {
 
     @Autowired
-    EntityManager entityManager;
+    EntityService entities;
 
-    @Transactional
     public FileResource cloneResource(FileResource resource, String name) {
-        resource = entityManager.merge(resource);
+        resource = entities.update(resource);
         var clone = new FileResource();
         clone.setName(name);
         clone.setStorageType(resource.getStorageType());
@@ -34,10 +34,5 @@ public class RenameDownloadsService {
         clone.setExtension(resource.getExtension());
         clone.setContent(resource.getContent());
         return clone;
-    }
-
-    @Transactional
-    public void updateResource(FileResource resource) {
-        entityManager.merge(resource);
     }
 }

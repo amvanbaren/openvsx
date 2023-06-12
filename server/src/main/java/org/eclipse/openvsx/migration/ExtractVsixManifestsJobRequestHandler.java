@@ -11,6 +11,7 @@ package org.eclipse.openvsx.migration;
 
 import org.eclipse.openvsx.ExtensionProcessor;
 import org.eclipse.openvsx.entities.FileResource;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.util.NamingUtil;
 import org.jobrunr.jobs.annotations.Job;
 import org.jobrunr.jobs.context.JobRunrDashboardLogger;
@@ -30,6 +31,9 @@ public class ExtractVsixManifestsJobRequestHandler implements JobRequestHandler<
     protected final Logger logger = new JobRunrDashboardLogger(LoggerFactory.getLogger(ExtractVsixManifestsJobRequestHandler.class));
 
     @Autowired
+    EntityService entities;
+
+    @Autowired
     MigrationService migrations;
 
     @Override
@@ -42,7 +46,7 @@ public class ExtractVsixManifestsJobRequestHandler implements JobRequestHandler<
         var existingVsixManifest = migrations.getFileResource(extVersion, FileResource.VSIXMANIFEST);
         if(existingVsixManifest != null) {
             migrations.removeFile(existingVsixManifest);
-            migrations.deleteFileResource(existingVsixManifest);
+            entities.delete(existingVsixManifest);
         }
 
         var content = migrations.getContent(download);
@@ -53,7 +57,7 @@ public class ExtractVsixManifestsJobRequestHandler implements JobRequestHandler<
             var vsixManifest = extProcessor.getVsixManifest(extVersion);
             vsixManifest.setStorageType(download.getStorageType());
             migrations.uploadFileResource(vsixManifest);
-            migrations.persistFileResource(vsixManifest);
+            entities.insert(vsixManifest);
         }
     }
 }

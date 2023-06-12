@@ -92,12 +92,6 @@ public class ExtensionVersionIntegrityService {
         return verified;
     }
 
-    @Transactional
-    public void setSignatureKeyPair(ExtensionVersion extVersion, SignatureKeyPair keyPair) {
-        extVersion = entityManager.merge(extVersion);
-        extVersion.setSignatureKeyPair(keyPair);
-    }
-
     public FileResource generateSignature(FileResource download, TempFile extensionFile, SignatureKeyPair keyPair) {
         var resource = new FileResource();
         resource.setExtension(download.getExtension());

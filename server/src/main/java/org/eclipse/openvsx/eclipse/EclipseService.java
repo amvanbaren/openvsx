@@ -9,26 +9,18 @@
  ********************************************************************************/
 package org.eclipse.openvsx.eclipse;
 
-import java.net.URI;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.DateTimeParseException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.regex.Pattern;
-
-import javax.persistence.EntityManager;
-import javax.transaction.Transactional;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import org.eclipse.openvsx.ExtensionService;
 import org.eclipse.openvsx.entities.AuthToken;
 import org.eclipse.openvsx.entities.EclipseData;
 import org.eclipse.openvsx.entities.UserData;
 import org.eclipse.openvsx.json.UserJson;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.security.TokenService;
 import org.eclipse.openvsx.util.ErrorResultException;
 import org.eclipse.openvsx.util.TimeUtil;
@@ -37,27 +29,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.RequestEntity;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.TransactionException;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
+import javax.transaction.Transactional;
+import java.net.URI;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.regex.Pattern;
 
 @Component
 public class EclipseService {
@@ -69,9 +59,9 @@ public class EclipseService {
             .append(DateTimeFormatter.ISO_LOCAL_TIME)
             .toFormatter();
     
-    private static final TypeReference<List<String>> TYPE_LIST_STRING = new TypeReference<List<String>>() {};
-    private static final TypeReference<List<EclipseProfile>> TYPE_LIST_PROFILE = new TypeReference<List<EclipseProfile>>() {};
-    private static final TypeReference<List<PublisherAgreementResponse>> TYPE_LIST_AGREEMENT = new TypeReference<List<PublisherAgreementResponse>>() {};
+    private static final TypeReference<List<String>> TYPE_LIST_STRING = new TypeReference<>() {};
+    private static final TypeReference<List<EclipseProfile>> TYPE_LIST_PROFILE = new TypeReference<>() {};
+    private static final TypeReference<List<PublisherAgreementResponse>> TYPE_LIST_AGREEMENT = new TypeReference<>() {};
 
     protected final Logger logger = LoggerFactory.getLogger(EclipseService.class);
 
@@ -79,13 +69,10 @@ public class EclipseService {
     TokenService tokens;
 
     @Autowired
-    TransactionTemplate transactions;
-
-    @Autowired
     ExtensionService extensions;
 
     @Autowired
-    EntityManager entityManager;
+    EntityService entities;
 
     @Autowired
     RestTemplate restTemplate;
@@ -182,7 +169,7 @@ public class EclipseService {
         }
 
         user.setEclipseData(eclipseData);
-        entityManager.merge(user);
+        entities.update(user);
         return eclipseData;
     }
 
@@ -205,7 +192,7 @@ public class EclipseService {
         if (eclipseData.personId != null) {
             try {
                 var profile = getPublicProfile(eclipseData.personId);
-                eclipseData = transactions.execute(status -> updateUserData(user, profile));
+                eclipseData = updateUserData(user, profile);
             } catch (ErrorResultException | TransactionException exc) {
                 // Continue with the information that is currently in the DB
             }
@@ -243,7 +230,7 @@ public class EclipseService {
         var urlTemplate = eclipseApiUrl + "account/profile/{personId}";
         var uriVariables = Map.of("personId", personId);
         var headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         var request = new HttpEntity<Void>(headers);
 
         try {
@@ -270,7 +257,7 @@ public class EclipseService {
         checkApiUrl();
         var headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         var requestUrl = UrlUtil.createApiUrl(eclipseApiUrl, "openvsx", "profile");
         var request = new RequestEntity<>(headers, HttpMethod.GET, URI.create(requestUrl));
 
@@ -329,19 +316,17 @@ public class EclipseService {
         var uriVariables = Map.of("personId", eclipseData.personId);
         var headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         var request = new HttpEntity<>(headers);
 
         try {
             var json = restTemplate.exchange(urlTemplate, HttpMethod.GET, request, String.class, uriVariables);
             var response = parseAgreementResponse(json);
-
-            return updateEclipseData(user, ed -> {
-                ed.publisherAgreement = response.createEntityData(parseDate);
-                return ed.publisherAgreement;
-            }, ed -> {
-                ed.personId = response.personID;
-            });
+            eclipseData.personId = response.personID;
+            eclipseData.publisherAgreement = response.createEntityData(parseDate);
+            user.setEclipseData(eclipseData);
+            entities.update(user);
+            return eclipseData.publisherAgreement;
         } catch (RestClientException exc) {
             if (exc instanceof HttpStatusCodeException) {
                 var status = ((HttpStatusCodeException) exc).getStatusCode();
@@ -381,14 +366,12 @@ public class EclipseService {
             
             // Parse the response and store the publisher agreement metadata
             var response = parseAgreementResponse(json);
-            var result = updateEclipseData(user, ed -> {
-                ed.publisherAgreement = response.createEntityData(parseDate);
-                return ed.publisherAgreement;
-            }, ed -> {
-                ed.personId = response.personID;
-            });
-            return result;
-
+            var eclipseData = new EclipseData();
+            eclipseData.personId = response.personID;
+            eclipseData.publisherAgreement = response.createEntityData(parseDate);
+            user.setEclipseData(eclipseData);
+            entities.update(user);
+            return eclipseData.publisherAgreement;
         } catch (RestClientException exc) {
             String message = exc.getMessage();
             var statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -468,10 +451,9 @@ public class EclipseService {
             restTemplate.execute(urlTemplate, HttpMethod.DELETE, requestCallback, null, uriVariables);
 
             if (eclipseData.publisherAgreement != null) {
-                updateEclipseData(user, ed -> {
-                    ed.publisherAgreement.isActive = false;
-                    return null;
-                }, NOP_INIT);
+                eclipseData.publisherAgreement.isActive = false;
+                user.setEclipseData(eclipseData);
+                entities.update(user);
             }
         } catch (RestClientException exc) {
             var url = UriComponentsBuilder.fromUriString(urlTemplate).build(uriVariables);
@@ -503,27 +485,4 @@ public class EclipseService {
         }
         return eclipseData;
     }
-
-    private static final Consumer<EclipseData> NOP_INIT = ed -> {};
-
-    /**
-     * Update the Eclipse data of the given user and commit the change to the database.
-     */
-    protected <T> T updateEclipseData(UserData user, Function<EclipseData, T> update, Consumer<EclipseData> initialize) {
-        return transactions.execute(status -> {
-            EclipseData eclipseData;
-            if (user.getEclipseData() == null) {
-                eclipseData = new EclipseData();
-                initialize.accept(eclipseData);
-            } else {
-                // We need to clone and reset the data to ensure that Hibernate will persist the updated state
-                eclipseData = user.getEclipseData().clone();
-            }
-            var result = update.apply(eclipseData);
-            user.setEclipseData(eclipseData);
-            entityManager.merge(user);
-            return result;
-        });
-    }
-
 }

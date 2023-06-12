@@ -9,6 +9,8 @@
  * ****************************************************************************** */
 package org.eclipse.openvsx.migration;
 
+import org.eclipse.openvsx.ExtensionProcessor;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.jobrunr.jobs.annotations.Job;
 import org.jobrunr.jobs.context.JobRunrDashboardLogger;
 import org.jobrunr.jobs.lambdas.JobRequestHandler;
@@ -30,6 +32,9 @@ public class SetPreReleaseJobRequestHandler implements JobRequestHandler<Migrati
     @Autowired
     SetPreReleaseJobService service;
 
+    @Autowired
+    EntityService entities;
+
     @Override
     @Job(name = "Set pre-release and preview for published extensions", retries = 3)
     public void run(MigrationJobRequest jobRequest) throws Exception {
@@ -37,7 +42,12 @@ public class SetPreReleaseJobRequestHandler implements JobRequestHandler<Migrati
         for(var extVersion : extVersions) {
             var entry = migrations.getDownload(extVersion);
             try (var extensionFile = migrations.getExtensionFile(entry)) {
-                service.updatePreviewAndPreRelease(extVersion, extensionFile);
+                try(var extProcessor = new ExtensionProcessor(extensionFile)) {
+                    extVersion.setPreRelease(extProcessor.isPreRelease());
+                    extVersion.setPreview(extProcessor.isPreview());
+                }
+
+                entities.update(extVersion);
             }
         }
     }

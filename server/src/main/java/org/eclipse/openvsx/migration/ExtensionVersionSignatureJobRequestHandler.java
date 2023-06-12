@@ -12,6 +12,7 @@ package org.eclipse.openvsx.migration;
 import org.eclipse.openvsx.cache.CacheService;
 import org.eclipse.openvsx.entities.FileResource;
 import org.eclipse.openvsx.publish.ExtensionVersionIntegrityService;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.util.NamingUtil;
 import org.jobrunr.jobs.annotations.Job;
@@ -28,6 +29,9 @@ import org.springframework.stereotype.Component;
 public class ExtensionVersionSignatureJobRequestHandler implements JobRequestHandler<MigrationJobRequest> {
 
     protected final Logger logger = new JobRunrDashboardLogger(LoggerFactory.getLogger(ExtensionVersionSignatureJobRequestHandler.class));
+
+    @Autowired
+    EntityService entities;
 
     @Autowired
     RepositoryService repositories;
@@ -54,7 +58,7 @@ public class ExtensionVersionSignatureJobRequestHandler implements JobRequestHan
         var existingSignature = migrations.getFileResource(extVersion, FileResource.DOWNLOAD_SIG);
         if(existingSignature != null) {
             migrations.removeFile(existingSignature);
-            migrations.deleteFileResource(existingSignature);
+            entities.delete(existingSignature);
         }
 
         var entry = migrations.getDownload(extVersion);
@@ -63,7 +67,9 @@ public class ExtensionVersionSignatureJobRequestHandler implements JobRequestHan
             var keyPair = repositories.findActiveKeyPair();
             var signature = integrityService.generateSignature(download, extensionFile, keyPair);
             signature.setStorageType(download.getStorageType());
-            integrityService.setSignatureKeyPair(extVersion, keyPair);
+
+            extVersion.setSignatureKeyPair(keyPair);
+            entities.update(extVersion);
 
             var extension = extVersion.getExtension();
             cache.evictExtensionJsons(extVersion);
@@ -71,7 +77,7 @@ public class ExtensionVersionSignatureJobRequestHandler implements JobRequestHan
             cache.evictNamespaceDetails(extension);
 
             migrations.uploadFileResource(signature);
-            migrations.persistFileResource(signature);
+            entities.insert(signature);
         }
     }
 }

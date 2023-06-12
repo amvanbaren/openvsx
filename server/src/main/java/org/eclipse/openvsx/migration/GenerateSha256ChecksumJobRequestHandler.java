@@ -11,6 +11,7 @@ package org.eclipse.openvsx.migration;
 
 import org.eclipse.openvsx.ExtensionProcessor;
 import org.eclipse.openvsx.entities.FileResource;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.util.NamingUtil;
 import org.jobrunr.jobs.annotations.Job;
 import org.jobrunr.jobs.context.JobRunrDashboardLogger;
@@ -28,6 +29,9 @@ public class GenerateSha256ChecksumJobRequestHandler implements JobRequestHandle
     protected final Logger logger = new JobRunrDashboardLogger(LoggerFactory.getLogger(GenerateSha256ChecksumJobRequestHandler.class));
 
     @Autowired
+    EntityService entities;
+
+    @Autowired
     MigrationService migrations;
 
     @Override
@@ -40,7 +44,7 @@ public class GenerateSha256ChecksumJobRequestHandler implements JobRequestHandle
         var existingChecksum = migrations.getFileResource(extVersion, FileResource.DOWNLOAD_SHA256);
         if(existingChecksum != null) {
             migrations.removeFile(existingChecksum);
-            migrations.deleteFileResource(existingChecksum);
+            entities.delete(existingChecksum);
         }
 
         var content = migrations.getContent(download);
@@ -51,7 +55,7 @@ public class GenerateSha256ChecksumJobRequestHandler implements JobRequestHandle
             var checksum = extProcessor.generateSha256Checksum(extVersion);
             checksum.setStorageType(download.getStorageType());
             migrations.uploadFileResource(checksum);
-            migrations.persistFileResource(checksum);
+            entities.insert(checksum);
         }
     }
 }

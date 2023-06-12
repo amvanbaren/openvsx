@@ -31,13 +31,13 @@ import com.google.common.collect.Lists;
 import com.google.common.io.CharStreams;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.eclipse.openvsx.ExtensionValidator;
-import org.eclipse.openvsx.MockTransactionTemplate;
 import org.eclipse.openvsx.UserService;
 import org.eclipse.openvsx.cache.CacheService;
 import org.eclipse.openvsx.cache.LatestExtensionVersionCacheKeyGenerator;
 import org.eclipse.openvsx.eclipse.EclipseService;
 import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.publish.ExtensionVersionIntegrityService;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.ExtensionSearch;
 import org.eclipse.openvsx.search.ISearchService;
@@ -65,15 +65,13 @@ import org.springframework.data.util.Streamable;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.support.TransactionTemplate;
 
 @WebMvcTest(VSCodeAPI.class)
 @AutoConfigureWebClient
 @MockBean({
     ClientRegistrationRepository.class, GoogleCloudStorageService.class, AzureBlobStorageService.class,
-    AzureDownloadCountService.class, CacheService.class, UpstreamVSCodeService.class,
-    VSCodeIdService.class, EntityManager.class, EclipseService.class, ExtensionValidator.class,
-    SimpleMeterRegistry.class
+    AzureDownloadCountService.class, CacheService.class, UpstreamVSCodeService.class, VSCodeIdService.class,
+    EntityManager.class, EntityService.class, EclipseService.class, ExtensionValidator.class, SimpleMeterRegistry.class
 })
 public class VSCodeAPITest {
 
@@ -911,11 +909,6 @@ public class VSCodeAPITest {
         @Bean
         IExtensionQueryRequestHandler extensionQueryRequestHandler(LocalVSCodeService local, UpstreamVSCodeService upstream) {
             return new DefaultExtensionQueryRequestHandler(local, upstream);
-        }
-
-        @Bean
-        TransactionTemplate transactionTemplate() {
-            return new MockTransactionTemplate();
         }
 
         @Bean

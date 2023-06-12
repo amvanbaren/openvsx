@@ -34,14 +34,4 @@ public class SetPreReleaseJobService {
         logger.info("Setting pre-release for: {}", NamingUtil.toExtensionId(extension));
         return extension.getVersions();
     }
-
-    @Transactional
-    public void updatePreviewAndPreRelease(ExtensionVersion extVersion, TempFile extensionFile) {
-        try(var extProcessor = new ExtensionProcessor(extensionFile)) {
-            extVersion.setPreRelease(extProcessor.isPreRelease());
-            extVersion.setPreview(extProcessor.isPreview());
-        }
-
-        entityManager.merge(extVersion);
-    }
 }

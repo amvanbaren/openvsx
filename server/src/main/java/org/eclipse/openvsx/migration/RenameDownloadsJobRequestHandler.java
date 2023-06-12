@@ -9,6 +9,7 @@
  * ****************************************************************************** */
 package org.eclipse.openvsx.migration;
 
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.util.NamingUtil;
 import org.jobrunr.jobs.lambdas.JobRequestHandler;
 import org.slf4j.Logger;
@@ -24,6 +25,9 @@ import java.util.AbstractMap;
 public class RenameDownloadsJobRequestHandler  implements JobRequestHandler<MigrationJobRequest> {
 
     protected final Logger logger = LoggerFactory.getLogger(RenameDownloadsJobRequestHandler.class);
+
+    @Autowired
+    EntityService entities;
 
     @Autowired
     MigrationService migrations;
@@ -48,7 +52,7 @@ public class RenameDownloadsJobRequestHandler  implements JobRequestHandler<Migr
             migrations.removeFile(download);
 
             download.setName(name);
-            service.updateResource(download);
+            entities.update(download);
         }
 
         logger.info("Updated download name to: {}", name);

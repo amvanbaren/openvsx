@@ -36,6 +36,7 @@ import org.eclipse.openvsx.json.NamespaceMembershipJson;
 import org.eclipse.openvsx.json.NamespaceMembershipListJson;
 import org.eclipse.openvsx.json.ResultJson;
 import org.eclipse.openvsx.json.UserJson;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.security.OAuth2UserServices;
 import org.eclipse.openvsx.security.TokenService;
@@ -53,7 +54,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.util.Streamable;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -64,7 +64,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 @AutoConfigureWebClient
 @MockBean({
         EclipseService.class, ClientRegistrationRepository.class, StorageUtilService.class, CacheService.class,
-        ExtensionValidator.class, SimpleMeterRegistry.class
+        ExtensionValidator.class, SimpleMeterRegistry.class, EntityService.class
 })
 public class UserAPITest {
 
@@ -548,10 +548,6 @@ public class UserAPITest {
     
     @TestConfiguration
     static class TestConfig {
-        @Bean
-        TransactionTemplate transactionTemplate() {
-            return new MockTransactionTemplate();
-        }
 
         @Bean
         OAuth2UserServices oauth2UserServices() {

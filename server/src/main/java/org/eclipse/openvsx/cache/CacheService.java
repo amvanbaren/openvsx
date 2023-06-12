@@ -15,6 +15,7 @@ import org.eclipse.openvsx.entities.UserData;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.eclipse.openvsx.util.VersionAlias;
+import org.eclipse.openvsx.util.VersionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
@@ -39,6 +40,9 @@ public class CacheService {
 
     @Autowired
     RepositoryService repositoryService;
+
+    @Autowired
+    VersionService versions;
 
     @Autowired
     ExtensionJsonCacheKeyGenerator extensionJsonCacheKey;
@@ -80,12 +84,14 @@ public class CacheService {
         if(cache == null) {
             return; // cache is not created
         }
-        if(extension.getVersions() == null) {
+
+        var extVersions = versions.getVersionsTrxn(extension);
+        if(extVersions == null) {
             return;
         }
 
         var versions = new ArrayList<>(VersionAlias.ALIAS_NAMES);
-        extension.getVersions().stream()
+        extVersions.stream()
                 .map(ExtensionVersion::getVersion)
                 .forEach(versions::add);
 

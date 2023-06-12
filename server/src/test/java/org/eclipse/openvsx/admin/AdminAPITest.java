@@ -21,6 +21,7 @@ import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.json.*;
 import org.eclipse.openvsx.publish.ExtensionVersionIntegrityService;
 import org.eclipse.openvsx.publish.PublishExtensionVersionHandler;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.SearchUtilService;
 import org.eclipse.openvsx.security.OAuth2UserServices;
@@ -47,7 +48,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -68,9 +68,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureWebClient
 @MockBean({
     ClientRegistrationRepository.class, UpstreamRegistryService.class, GoogleCloudStorageService.class,
-    AzureBlobStorageService.class, VSCodeIdService.class, AzureDownloadCountService.class,
-    CacheService.class, PublishExtensionVersionHandler.class, SearchUtilService.class,
-    EclipseService.class, SimpleMeterRegistry.class
+    AzureBlobStorageService.class, VSCodeIdService.class, AzureDownloadCountService.class, CacheService.class,
+    PublishExtensionVersionHandler.class, SearchUtilService.class, EclipseService.class, SimpleMeterRegistry.class,
+    EntityService.class
 })
 public class AdminAPITest {
     
@@ -1191,10 +1191,6 @@ public class AdminAPITest {
     
     @TestConfiguration
     static class TestConfig {
-        @Bean
-        TransactionTemplate transactionTemplate() {
-            return new MockTransactionTemplate();
-        }
 
         @Bean
         OAuth2UserServices oauth2UserServices() {

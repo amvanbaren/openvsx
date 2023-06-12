@@ -12,6 +12,7 @@ package org.eclipse.openvsx.storage;
 import com.google.common.collect.Lists;
 import org.eclipse.openvsx.cache.CacheService;
 import org.eclipse.openvsx.entities.*;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.SearchUtilService;
 import org.slf4j.Logger;
@@ -36,6 +37,9 @@ public class AzureDownloadCountProcessor {
     EntityManager entityManager;
 
     @Autowired
+    EntityService entities;
+
+    @Autowired
     RepositoryService repositories;
 
     @Autowired
@@ -51,7 +55,7 @@ public class AzureDownloadCountProcessor {
         processedItem.setProcessedOn(processedOn);
         processedItem.setExecutionTime(executionTime);
         processedItem.setSuccess(success);
-        entityManager.persist(processedItem);
+        entities.insert(processedItem);
     }
 
     public Map<Long, List<Download>> processDownloadCounts(Map<String, List<LocalDateTime>> files) {
@@ -86,10 +90,8 @@ public class AzureDownloadCountProcessor {
         return extensions;
     }
 
-    @Transactional //needs transaction for lazy-loading versions
     public void evictCaches(List<Extension> extensions) {
         extensions.forEach(extension -> {
-            extension = entityManager.merge(extension);
             cache.evictExtensionJsons(extension);
             cache.evictLatestExtensionVersion(extension);
         });

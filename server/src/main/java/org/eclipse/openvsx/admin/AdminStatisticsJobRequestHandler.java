@@ -10,6 +10,7 @@
 package org.eclipse.openvsx.admin;
 
 import org.eclipse.openvsx.entities.AdminStatistics;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.jobrunr.jobs.lambdas.JobRequestHandler;
 import org.slf4j.Logger;
@@ -29,7 +30,7 @@ public class AdminStatisticsJobRequestHandler implements JobRequestHandler<Admin
     RepositoryService repositories;
 
     @Autowired
-    AdminStatisticsService service;
+    EntityService entities;
 
     @Override
     public void run(AdminStatisticsJobRequest jobRequest) throws Exception {
@@ -118,6 +119,6 @@ public class AdminStatisticsJobRequestHandler implements JobRequestHandler<Admin
         statistics.setTopNamespaceExtensions(topNamespaceExtensions);
         statistics.setTopNamespaceExtensionVersions(topNamespaceExtensionVersions);
         statistics.setTopMostDownloadedExtensions(topMostDownloadedExtensions);
-        service.saveAdminStatistics(statistics);
+        entities.insert(statistics);
     }
 }

@@ -13,6 +13,9 @@ import org.eclipse.openvsx.ExtensionProcessor;
 import org.eclipse.openvsx.ExtensionService;
 import org.eclipse.openvsx.admin.AdminService;
 import org.eclipse.openvsx.entities.ExtensionVersion;
+import org.eclipse.openvsx.entities.UserData;
+import org.eclipse.openvsx.repositories.EntityService;
+import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.util.NamingUtil;
 import org.jobrunr.jobs.annotations.Job;
 import org.jobrunr.jobs.context.JobRunrDashboardLogger;
@@ -42,7 +45,10 @@ public class FixTargetPlatformsJobRequestHandler implements JobRequestHandler<Mi
     MigrationService migrations;
 
     @Autowired
-    FixTargetPlatformsService service;
+    EntityService entities;
+
+    @Autowired
+    RepositoryService repositories;
 
     @Override
     @Job(name = "Fix target platform for published extension version", retries = 3)
@@ -73,7 +79,18 @@ public class FixTargetPlatformsJobRequestHandler implements JobRequestHandler<Mi
                 extension.getName(),
                 extVersion.getTargetPlatform(),
                 extVersion.getVersion(),
-                service.getUser()
+                getAdmin()
         );
+    }
+
+    private UserData getAdmin() {
+        var userName = "FixTargetPlatformMigration";
+        var user = repositories.findUserByLoginName(null, userName);
+        if(user == null) {
+            user = new UserData();
+            user.setLoginName(userName);
+            entities.insert(user);
+        }
+        return user;
     }
 }

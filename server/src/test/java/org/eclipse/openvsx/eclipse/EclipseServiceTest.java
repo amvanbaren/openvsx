@@ -22,13 +22,12 @@ import javax.persistence.EntityManager;
 
 import org.eclipse.openvsx.ExtensionService;
 import org.eclipse.openvsx.ExtensionValidator;
-import org.eclipse.openvsx.MockTransactionTemplate;
-import org.eclipse.openvsx.UserService;
 import org.eclipse.openvsx.adapter.VSCodeIdService;
 import org.eclipse.openvsx.cache.CacheService;
 import org.eclipse.openvsx.cache.LatestExtensionVersionCacheKeyGenerator;
 import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.publish.PublishExtensionVersionHandler;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.search.SearchUtilService;
 import org.eclipse.openvsx.security.TokenService;
@@ -54,7 +53,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
@@ -65,9 +63,8 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 @ExtendWith(SpringExtension.class)
 @MockBean({
     EntityManager.class, SearchUtilService.class, GoogleCloudStorageService.class, AzureBlobStorageService.class,
-    VSCodeIdService.class, AzureDownloadCountService.class, CacheService.class,
-    UserService.class, PublishExtensionVersionHandler.class,
-    SimpleMeterRegistry.class
+    VSCodeIdService.class, AzureDownloadCountService.class, CacheService.class, EntityService.class,
+    PublishExtensionVersionHandler.class, SimpleMeterRegistry.class
 })
 public class EclipseServiceTest {
 
@@ -289,10 +286,6 @@ public class EclipseServiceTest {
     
     @TestConfiguration
     static class TestConfig {
-        @Bean
-        TransactionTemplate transactionTemplate() {
-            return new MockTransactionTemplate();
-        }
 
         @Bean
         EclipseService eclipseService() {

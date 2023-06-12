@@ -10,12 +10,15 @@
 package org.eclipse.openvsx;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import org.apache.commons.io.IOUtils;
 import org.eclipse.openvsx.cache.CacheService;
+import org.eclipse.openvsx.eclipse.EclipseProfile;
 import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.json.AccessTokenJson;
 import org.eclipse.openvsx.json.NamespaceDetailsJson;
 import org.eclipse.openvsx.json.ResultJson;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.security.IdPrincipal;
 import org.eclipse.openvsx.storage.StorageUtilService;
@@ -47,6 +50,9 @@ public class UserService {
     EntityManager entityManager;
 
     @Autowired
+    EntityService entities;
+
+    @Autowired
     RepositoryService repositories;
 
     @Autowired
@@ -69,7 +75,6 @@ public class UserService {
         return null;
     }
 
-    @Transactional
     public UserData registerNewUser(OAuth2User oauth2User) {
         var user = new UserData();
         user.setProvider("github");
@@ -79,7 +84,7 @@ public class UserService {
         user.setEmail(oauth2User.getAttribute("email"));
         user.setProviderUrl(oauth2User.getAttribute("html_url"));
         user.setAvatarUrl(oauth2User.getAttribute("avatar_url"));
-        entityManager.persist(user);
+        entities.insert(user);
         return user;
     }
 
@@ -182,25 +187,33 @@ public class UserService {
         return ResultJson.success("Removed " + user.getLoginName() + " from namespace " + namespace.getName() + ".");
     }
 
-    @Transactional(rollbackOn = ErrorResultException.class)
     public ResultJson addNamespaceMember(Namespace namespace, UserData user, String role) {
-        if (!(role.equals(NamespaceMembership.ROLE_OWNER)
-                || role.equals(NamespaceMembership.ROLE_CONTRIBUTOR))) {
+        if (!(role.equals(NamespaceMembership.ROLE_OWNER) || role.equals(NamespaceMembership.ROLE_CONTRIBUTOR))) {
             throw new ErrorResultException("Invalid role: " + role);
         }
+
         var membership = repositories.findMembership(user, namespace);
-        if (membership != null) {
-            if (role.equals(membership.getRole())) {
-                throw new ErrorResultException("User " + user.getLoginName() + " already has the role " + role + ".");
-            }
-            membership.setRole(role);
-            return ResultJson.success("Changed role of " + user.getLoginName() + " in " + namespace.getName() + " to " + role + ".");
+        return membership != null
+                ? updateNamespaceMember(membership, namespace, user, role)
+                : createNamespaceMember(namespace, user, role);
+    }
+
+    private ResultJson updateNamespaceMember(NamespaceMembership membership, Namespace namespace, UserData user, String role) {
+        if (role.equals(membership.getRole())) {
+            throw new ErrorResultException("User " + user.getLoginName() + " already has the role " + role + ".");
         }
-        membership = new NamespaceMembership();
+
+        membership.setRole(role);
+        entities.update(membership);
+        return ResultJson.success("Changed role of " + user.getLoginName() + " in " + namespace.getName() + " to " + role + ".");
+    }
+
+    private ResultJson createNamespaceMember(Namespace namespace, UserData user, String role) {
+        var membership = new NamespaceMembership();
         membership.setNamespace(namespace);
         membership.setUser(user);
         membership.setRole(role);
-        entityManager.persist(membership);
+        entities.insert(membership);
         return ResultJson.success("Added " + user.getLoginName() + " as " + role + " of " + namespace.getName() + ".");
     }
 
@@ -280,7 +293,7 @@ public class UserService {
             namespace.setLogoStorageType(FileResource.STORAGE_DB);
         }
     }
-    @Transactional
+
     public AccessTokenJson createAccessToken(UserData user, String description) {
         var token = new PersonalAccessToken();
         token.setUser(user);
@@ -288,12 +301,11 @@ public class UserService {
         token.setActive(true);
         token.setCreatedTimestamp(TimeUtil.getCurrentUTC());
         token.setDescription(description);
-        entityManager.persist(token);
-        var json = token.toAccessTokenJson();
-        // Include the token value after creation so the user can copy it
-        json.value = token.getValue();
-        json.deleteTokenUrl = createApiUrl(UrlUtil.getBaseUrl(), "user", "token", "delete", Long.toString(token.getId()));
+        entities.insert(token);
 
+        var json = token.toAccessTokenJson();
+        json.value = token.getValue(); // Include the token value after creation so the user can copy it
+        json.deleteTokenUrl = createApiUrl(UrlUtil.getBaseUrl(), "user", "token", "delete", Long.toString(token.getId()));
         return json;
     }
 

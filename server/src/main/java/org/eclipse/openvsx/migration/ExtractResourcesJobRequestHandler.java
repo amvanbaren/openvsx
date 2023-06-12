@@ -10,6 +10,7 @@
 package org.eclipse.openvsx.migration;
 
 import org.eclipse.openvsx.ExtensionProcessor;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.util.NamingUtil;
 import org.jobrunr.jobs.annotations.Job;
 import org.jobrunr.jobs.context.JobRunrDashboardLogger;
@@ -25,6 +26,9 @@ import org.springframework.stereotype.Component;
 public class ExtractResourcesJobRequestHandler implements JobRequestHandler<MigrationJobRequest> {
 
     protected final Logger logger = new JobRunrDashboardLogger(LoggerFactory.getLogger(ExtractResourcesJobRequestHandler.class));
+
+    @Autowired
+    EntityService entities;
 
     @Autowired
     ExtractResourcesJobService service;
@@ -48,7 +52,7 @@ public class ExtractResourcesJobRequestHandler implements JobRequestHandler<Migr
             extProcessor.processEachResource(download.getExtension(), (resource) -> {
                 resource.setStorageType(download.getStorageType());
                 migrations.uploadFileResource(resource);
-                migrations.persistFileResource(resource);
+                entities.insert(resource);
             });
         }
 

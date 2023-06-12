@@ -11,6 +11,7 @@ package org.eclipse.openvsx.storage;
 
 import org.apache.jena.ext.com.google.common.collect.Lists;
 import org.eclipse.openvsx.entities.FileResource;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +22,6 @@ import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestTemplate;
 
 import javax.persistence.EntityManager;
@@ -41,7 +41,7 @@ public class StorageMigration {
     TaskScheduler taskScheduler;
 
     @Autowired
-    TransactionTemplate transactions;
+    EntityService entities;
 
     @Autowired
     EntityManager entityManager;
@@ -75,8 +75,7 @@ public class StorageMigration {
         for (var i = 0; i < migrations.size(); i++) {
             final int index = i;
             repositories.findFilesByStorageType(migrations.get(index))
-                .filter(resource -> !resource.getStorageType().equals(STORAGE_DB)
-                                    || storageUtil.shouldStoreExternally(resource))
+                .filter(resource -> !resource.getStorageType().equals(STORAGE_DB) || storageUtil.shouldStoreExternally(resource))
                 .forEach(resource -> {
                     resourceQueue.add(resource.getId());
                     migrationCount[index]++;
@@ -102,23 +101,25 @@ public class StorageMigration {
             return;
         }
 
-        transactions.<Void>execute(status -> {
-            var resource = entityManager.find(FileResource.class, resourceId);
-            if (resource == null)
-                return null;
-
-            if (!resource.getStorageType().equals(STORAGE_DB)) {
-                resource.setContent(downloadFile(resource));
-            }
-            storageUtil.uploadFile(resource);
-            resource.setContent(null);
-            return null;
-        });
-
+        migrateResource(resourceId);
         var remainingCount = resourceQueue.size();
         if (remainingCount > 0 && remainingCount % 1000 == 0) {
             logger.info("Remaining resources to migrate: " + remainingCount);
         }
+    }
+
+    private void migrateResource(long resourceId) {
+        var resource = entityManager.find(FileResource.class, resourceId);
+        if (resource == null) {
+            return;
+        }
+        if (!resource.getStorageType().equals(STORAGE_DB)) {
+            resource.setContent(downloadFile(resource));
+        }
+
+        storageUtil.uploadFile(resource);
+        resource.setContent(null);
+        entities.update(resource);
     }
 
     private byte[] downloadFile(FileResource resource) {

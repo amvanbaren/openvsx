@@ -17,6 +17,7 @@ import org.bouncycastle.crypto.util.SubjectPublicKeyInfoFactory;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemWriter;
 import org.eclipse.openvsx.entities.SignatureKeyPair;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -35,7 +36,7 @@ import java.util.UUID;
 public class GenerateKeyPairJobService {
     
     @Autowired
-    EntityManager entityManager;
+    EntityService entities;
 
     @Autowired
     RepositoryService repositories;
@@ -50,7 +51,6 @@ public class GenerateKeyPairJobService {
         generateKeyPair();
     }
 
-    @Transactional
     public void generateKeyPair() {
         var generator = new Ed25519KeyPairGenerator();
         generator.init(new Ed25519KeyGenerationParameters(new SecureRandom()));
@@ -62,7 +62,7 @@ public class GenerateKeyPairJobService {
         keyPair.setPublicKeyText(getPublicKeyText(pair));
         keyPair.setCreated(LocalDateTime.now());
         keyPair.setActive(true);
-        entityManager.persist(keyPair);
+        entities.insert(keyPair);
     }
     
     private String getPublicKeyText(AsymmetricCipherKeyPair pair) {

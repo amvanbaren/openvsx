@@ -12,6 +12,7 @@ package org.eclipse.openvsx.migration;
 import org.eclipse.openvsx.entities.ExtensionVersion;
 import org.eclipse.openvsx.entities.FileResource;
 import org.eclipse.openvsx.entities.MigrationItem;
+import org.eclipse.openvsx.repositories.EntityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.storage.AzureBlobStorageService;
 import org.eclipse.openvsx.storage.GoogleCloudStorageService;
@@ -41,6 +42,9 @@ public class MigrationService {
     RestTemplate backgroundRestTemplate;
 
     @Autowired
+    EntityService entities;
+
+    @Autowired
     EntityManager entityManager;
 
     @Autowired
@@ -57,11 +61,11 @@ public class MigrationService {
 
     @Transactional
     public void enqueueMigration(String jobName, Class<? extends JobRequestHandler<MigrationJobRequest>> handler, MigrationItem item) {
-        item = entityManager.merge(item);
         var jobIdText = jobName + "::itemId=" + item.getId();
         var jobId = UUID.nameUUIDFromBytes(jobIdText.getBytes(StandardCharsets.UTF_8));
         scheduler.enqueue(jobId, new MigrationJobRequest<>(handler, item.getEntityId()));
         item.setMigrationScheduled(true);
+        entities.update(item);
     }
 
     public ExtensionVersion getExtension(long entityId) {
@@ -123,17 +127,6 @@ public class MigrationService {
             var storage = getStorage(resource);
             storage.removeFile(resource);
         }
-    }
-
-    @Transactional
-    public void persistFileResource(FileResource resource) {
-        entityManager.persist(resource);
-    }
-
-    @Transactional
-    public void deleteFileResource(FileResource resource) {
-        resource = entityManager.merge(resource);
-        entityManager.remove(resource);
     }
 
     public FileResource getFileResource(ExtensionVersion extVersion, String type) {
