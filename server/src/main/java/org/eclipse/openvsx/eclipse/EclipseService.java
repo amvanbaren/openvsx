@@ -21,6 +21,7 @@ import org.eclipse.openvsx.entities.EclipseData;
 import org.eclipse.openvsx.entities.UserData;
 import org.eclipse.openvsx.json.UserJson;
 import org.eclipse.openvsx.repositories.EntityService;
+import org.eclipse.openvsx.security.CodedAuthException;
 import org.eclipse.openvsx.security.TokenService;
 import org.eclipse.openvsx.util.ErrorResultException;
 import org.eclipse.openvsx.util.TimeUtil;
@@ -48,6 +49,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+
+import static org.eclipse.openvsx.security.CodedAuthException.ECLIPSE_REFRESH_TOKEN_EXPIRED;
 
 @Component
 public class EclipseService {
@@ -472,7 +475,7 @@ public class EclipseService {
     private AuthToken checkEclipseToken(UserData user) {
         var eclipseToken = tokens.getActiveToken(user, "eclipse");
         if (eclipseToken == null || Strings.isNullOrEmpty(eclipseToken.accessToken)) {
-            throw new ErrorResultException("Authorization by Eclipse required.", HttpStatus.FORBIDDEN);
+            throw new CodedAuthException("Authorization by Eclipse required.", ECLIPSE_REFRESH_TOKEN_EXPIRED);
         }
         return eclipseToken;
     }

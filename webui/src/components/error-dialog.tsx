@@ -14,6 +14,7 @@ import {
     Theme, createStyles, withStyles, WithStyles
 } from '@material-ui/core';
 import { MainContext } from '../context';
+import { createAbsoluteURL } from '../utils';
 
 const dialogStyles = (theme: Theme) => createStyles({
     lightTheme: {
@@ -95,6 +96,13 @@ export class ErrorDialogComponent extends React.Component<ErrorDialogComponent.P
                     in <Link href='https://accounts.eclipse.org/user/edit' target='_blank' className={classes.link}>
                         your Eclipse account
                     </Link> or log in with a different GitHub account.
+                </>;
+            case 'eclipse-refresh-token-expired':
+                return <>
+                    Please <Link 
+                        href={createAbsoluteURL([this.context.service.serverUrl, 'oauth2', 'authorization', 'eclipse'])}>
+                        Log in with Eclipse
+                    </Link> to get a new access token.
                 </>;
             case 'publisher-agreement-problem':
                 return <>

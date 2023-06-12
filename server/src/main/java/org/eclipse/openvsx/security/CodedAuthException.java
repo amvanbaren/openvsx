@@ -22,6 +22,7 @@ public class CodedAuthException extends AuthenticationException {
     public static final String NEED_MAIN_LOGIN = "need-main-login";
     public static final String ECLIPSE_MISSING_GITHUB_ID = "eclipse-missing-github-id";
     public static final String ECLIPSE_MISMATCH_GITHUB_ID = "eclipse-mismatch-github-id";
+    public static final String ECLIPSE_REFRESH_TOKEN_EXPIRED = "eclipse-refresh-token-expired";
 
     private static final long serialVersionUID = 1L;
     
