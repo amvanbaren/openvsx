@@ -712,25 +712,27 @@ public class LocalRegistryService implements IExtensionRegistry {
                 .collect(Collectors.toSet());
 
         var extensions = new ArrayList<>(repositories.findExtensions(ids).toList());
-        var extensionIds = extensions.stream()
-                .map(Extension::getId)
-                .collect(Collectors.toSet());
-
-        ids.removeAll(extensionIds);
-        if(!ids.isEmpty()) {
-            search.removeSearchEntries(ids);
-        }
-
+//        This is not the right place to remove search entries, it's redundant and lowers performance
+//        var extensionIds = extensions.stream()
+//                .map(Extension::getId)
+//                .collect(Collectors.toSet());
+//
+//        ids.removeAll(extensionIds);
+//        if(!ids.isEmpty()) {
+//            search.removeSearchEntries(ids);
+//        }
+//
         var inactiveExtensions = extensions.stream()
                 .filter(extension -> !extension.isActive())
                 .collect(Collectors.toList());
 
         if(!inactiveExtensions.isEmpty()) {
-            var inactiveIds = inactiveExtensions.stream()
-                    .map(Extension::getId)
-                    .collect(Collectors.toList());
-
-            search.removeSearchEntries(inactiveIds);
+//        This is not the right place to remove search entries, it's redundant and lowers performance
+//            var inactiveIds = inactiveExtensions.stream()
+//                    .map(Extension::getId)
+//                    .collect(Collectors.toList());
+//
+//            search.removeSearchEntries(inactiveIds);
             extensions.removeAll(inactiveExtensions);
         }
 

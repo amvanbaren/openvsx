@@ -183,7 +183,9 @@ public class ElasticSearchService implements ISearchService {
     @Async
     @Retryable(DataAccessResourceFailureException.class)
     public void updateSearchEntriesAsync(List<Extension> extensions) {
-        updateSearchEntries(extensions);
+        // Used by AzureDownloadCountProcessor
+        // Update download counts once a day to see how it affects server performance
+        //updateSearchEntries(extensions);
     }
 
     @Retryable(DataAccessResourceFailureException.class)

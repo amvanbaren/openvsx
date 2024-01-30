@@ -61,7 +61,7 @@ public class VSCodeIdService {
             return;
         }
         if(updateOnStart) {
-            scheduler.enqueue(new HandlerJobRequest<>(VSCodeIdDailyUpdateJobRequestHandler.class));
+            scheduler.enqueue(UUID.fromString("VSCodeIdUpdateOnStart"), new HandlerJobRequest<>(VSCodeIdDailyUpdateJobRequestHandler.class));
         }
 
         scheduler.scheduleRecurrently("VSCodeIdDailyUpdate", Cron.daily(3), ZoneId.of("UTC"), new HandlerJobRequest<>(VSCodeIdDailyUpdateJobRequestHandler.class));

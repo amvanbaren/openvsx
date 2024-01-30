@@ -284,9 +284,10 @@ public class StorageUtilService implements IStorageService {
 
         cache.evictNamespaceDetails(extension);
         cache.evictExtensionJsons(extension);
-        if (extension.isActive()) {
-            search.updateSearchEntry(extension);
-        }
+//        Only update download counts once a day to see how it affects server performance
+//        if (extension.isActive()) {
+//            search.updateSearchEntry(extension);
+//        }
     }
 
     public HttpHeaders getFileResponseHeaders(String fileName) {
