@@ -26,10 +26,7 @@ import org.eclipse.openvsx.search.SearchUtilService;
 import org.eclipse.openvsx.security.OAuth2UserServices;
 import org.eclipse.openvsx.security.SecurityConfig;
 import org.eclipse.openvsx.security.TokenService;
-import org.eclipse.openvsx.storage.AzureBlobStorageService;
-import org.eclipse.openvsx.storage.AzureDownloadCountService;
-import org.eclipse.openvsx.storage.GoogleCloudStorageService;
-import org.eclipse.openvsx.storage.StorageUtilService;
+import org.eclipse.openvsx.storage.*;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.eclipse.openvsx.util.VersionService;
 import org.jobrunr.scheduling.JobRequestScheduler;
@@ -384,8 +381,8 @@ public class AdminAPITest {
         membership1.setNamespace(namespace);
         membership1.setUser(user);
         membership1.setRole(NamespaceMembership.ROLE_OWNER);
-        Mockito.when(repositories.findMemberships(namespace))
-                .thenReturn(Streamable.of(membership1));
+        Mockito.when(repositories.findMemberships(namespace.getName()))
+                .thenReturn(List.of(membership1));
         
         mockMvc.perform(get("/admin/namespace/{namespace}/members", "foobar")
                 .with(user("admin_user").authorities(new SimpleGrantedAuthority(("ROLE_ADMIN"))))
@@ -437,10 +434,8 @@ public class AdminAPITest {
     @Test
     public void testCreateExistingNamespace() throws Exception {
         mockAdminUser();
-        var namespace = new Namespace();
-        namespace.setName("foobar");
-        Mockito.when(repositories.findNamespace("foobar"))
-                .thenReturn(namespace);
+        Mockito.when(repositories.findNamespaceName("foobar"))
+                .thenReturn("foobar");
  
         mockMvc.perform(post("/admin/create-namespace")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -1072,8 +1067,8 @@ public class AdminAPITest {
                 .thenReturn(namespace);
         Mockito.when(repositories.findActiveExtensions(namespace))
                 .thenReturn(Streamable.empty());
-        Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
-                .thenReturn(0l);
+        Mockito.when(repositories.hasMemberships(namespace, NamespaceMembership.ROLE_OWNER))
+                .thenReturn(false);
         return namespace;
     }
 
@@ -1297,6 +1292,7 @@ public class AdminAPITest {
                 RepositoryService repositories,
                 GoogleCloudStorageService googleStorage,
                 AzureBlobStorageService azureStorage,
+                LocalStorageService localStorage,
                 AzureDownloadCountService azureDownloadCountService,
                 SearchUtilService search,
                 CacheService cache,
@@ -1307,10 +1303,16 @@ public class AdminAPITest {
                     googleStorage,
                     azureStorage,
                     azureDownloadCountService,
+                    localStorage,
                     search,
                     cache,
                     entityManager
             );
+        }
+
+        @Bean
+        LocalStorageService localStorage(EntityManager entityManager) {
+            return new LocalStorageService(entityManager);
         }
 
         @Bean

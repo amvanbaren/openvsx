@@ -107,7 +107,6 @@ public class AdminService {
     }
 
     protected ResultJson deleteExtension(Extension extension, UserData admin) throws ErrorResultException {
-        var namespace = extension.getNamespace();
         var bundledRefs = repositories.findBundledExtensionsReference(extension);
         if (!bundledRefs.isEmpty()) {
             throw new ErrorResultException("Extension " + NamingUtil.toExtensionId(extension)
@@ -156,10 +155,8 @@ public class AdminService {
     }
 
     private void removeExtensionVersion(ExtensionVersion extVersion) {
-        repositories.findFiles(extVersion).forEach(file -> {
-            enqueueRemoveFileJob(file);
-            entityManager.remove(file);
-        });
+        repositories.findFiles(extVersion).forEach(this::enqueueRemoveFileJob);
+        repositories.deleteFiles(extVersion);
         entityManager.remove(extVersion);
     }
 
@@ -187,9 +184,8 @@ public class AdminService {
         } else {
             result = users.addNamespaceMember(namespace, user, role);
         }
-        for (var extension : repositories.findActiveExtensions(namespace)) {
-            search.updateSearchEntry(extension);
-        }
+
+        search.updateSearchEntries(repositories.findActiveExtensions(namespace).toList());
         logAdminAction(admin, result);
         return result;
     }
@@ -201,11 +197,11 @@ public class AdminService {
             throw new ErrorResultException(namespaceIssue.get().toString());
         }
 
-        var namespace = repositories.findNamespace(json.name);
-        if (namespace != null) {
-            throw new ErrorResultException("Namespace already exists: " + namespace.getName());
+        var namespaceName = repositories.findNamespaceName(json.name);
+        if (namespaceName != null) {
+            throw new ErrorResultException("Namespace already exists: " + namespaceName);
         }
-        namespace = new Namespace();
+        var namespace = new Namespace();
         namespace.setName(json.name);
         entityManager.persist(namespace);
         return ResultJson.success("Created namespace " + namespace.getName());

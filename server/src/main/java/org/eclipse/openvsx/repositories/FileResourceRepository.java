@@ -21,6 +21,8 @@ public interface FileResourceRepository extends Repository<FileResource, Long> {
 
     Streamable<FileResource> findByExtension(ExtensionVersion extVersion);
 
+    void deleteByExtension(ExtensionVersion extVersion);
+
     Streamable<FileResource> findByExtensionExtensionNamespace(Namespace namespace);
 
     Streamable<FileResource> findByStorageType(String storageType);

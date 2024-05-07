@@ -34,6 +34,8 @@ public interface ExtensionVersionRepository extends Repository<ExtensionVersion,
 
     ExtensionVersion findByVersionAndTargetPlatformAndExtensionNameIgnoreCaseAndExtensionNamespaceNameIgnoreCase(String version, String targetPlatform, String extensionName, String namespace);
 
+    ExtensionVersion findByVersionAndTargetPlatformAndExtensionNameIgnoreCaseAndExtensionNamespaceNameIgnoreCaseAndActiveTrue(String version, String targetPlatform, String extensionName, String namespace);
+
     Streamable<ExtensionVersion> findByVersionAndExtensionNameIgnoreCaseAndExtensionNamespaceNameIgnoreCase(String version, String extensionName, String namespace);
 
     Streamable<ExtensionVersion> findByPublishedWithUser(UserData user);
@@ -41,6 +43,8 @@ public interface ExtensionVersionRepository extends Repository<ExtensionVersion,
     Streamable<ExtensionVersion> findByPublishedWith(PersonalAccessToken publishedWith);
 
     Streamable<ExtensionVersion> findByPublishedWithAndActive(PersonalAccessToken publishedWith, boolean active);
+
+    Streamable<ExtensionVersion> findByPublishedWithUserAndActive(UserData user, boolean active);
 
     Streamable<ExtensionVersion> findAll();
 

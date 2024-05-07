@@ -265,7 +265,7 @@ public class DataMirrorService {
     }
 
     public void ensureNamespace(String namespaceName) {
-        if(repositories.findNamespace(namespaceName) == null) {
+        if(!repositories.namespaceExists(namespaceName)) {
             var json = new NamespaceJson();
             json.name = namespaceName;
             admin.createNamespace(json);

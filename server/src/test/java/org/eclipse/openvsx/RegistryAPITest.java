@@ -12,7 +12,6 @@ package org.eclipse.openvsx;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import io.micrometer.observation.annotation.Observed;
 import jakarta.persistence.EntityManager;
 import org.eclipse.openvsx.adapter.VSCodeIdService;
 import org.eclipse.openvsx.cache.CacheService;
@@ -31,10 +30,7 @@ import org.eclipse.openvsx.search.SearchUtilService;
 import org.eclipse.openvsx.security.OAuth2UserServices;
 import org.eclipse.openvsx.security.SecurityConfig;
 import org.eclipse.openvsx.security.TokenService;
-import org.eclipse.openvsx.storage.AzureBlobStorageService;
-import org.eclipse.openvsx.storage.AzureDownloadCountService;
-import org.eclipse.openvsx.storage.GoogleCloudStorageService;
-import org.eclipse.openvsx.storage.StorageUtilService;
+import org.eclipse.openvsx.storage.*;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.eclipse.openvsx.util.VersionAlias;
 import org.eclipse.openvsx.util.VersionService;
@@ -115,8 +111,8 @@ public class RegistryAPITest {
     @Test
     public void testPublicNamespace() throws Exception {
         var namespace = mockNamespace();
-        Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
-                .thenReturn(0L);
+        Mockito.when(repositories.hasMemberships(namespace, NamespaceMembership.ROLE_OWNER))
+                .thenReturn(false);
 
         mockMvc.perform(get("/api/{namespace}", "foobar"))
                 .andExpect(status().isOk())
@@ -131,8 +127,8 @@ public class RegistryAPITest {
         var namespace = mockNamespace();
         var user = new UserData();
         user.setLoginName("test_user");
-        Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
-                .thenReturn(1L);
+        Mockito.when(repositories.hasMemberships(namespace, NamespaceMembership.ROLE_OWNER))
+                .thenReturn(true);
 
         mockMvc.perform(get("/api/{namespace}", "foobar"))
                 .andExpect(status().isOk())
@@ -459,8 +455,7 @@ public class RegistryAPITest {
     @Test
     public void testReadmeUniversalTarget() throws Exception {
         var resource = mockReadme();
-        var extVersion = resource.getExtension();
-        Mockito.when(repositories.findExtensionVersion("foo", "bar", "universal", "1.0.0")).thenReturn(extVersion);
+        Mockito.when(repositories.findFileByType("foo", "bar", "universal", "1.0.0", README)).thenReturn(resource);
 
         mockMvc.perform(get("/api/{namespace}/{extension}/{version}/file/{fileName}", "foo", "bar", "1.0.0", "README"))
                 .andExpect(status().isOk())
@@ -470,8 +465,7 @@ public class RegistryAPITest {
     @Test
     public void testReadmeWindowsTarget() throws Exception {
         var resource = mockReadme("win32-x64");
-        var extVersion = resource.getExtension();
-        Mockito.when(repositories.findExtensionVersion("foo", "bar", "win32-x64", "1.0.0")).thenReturn(extVersion);
+        Mockito.when(repositories.findFileByType("foo", "bar", "win32-x64", "1.0.0", README)).thenReturn(resource);
 
         mockMvc.perform(get("/api/{namespace}/{extension}/{target}/{version}/file/{fileName}", "foo", "bar", "win32-x64", "1.0.0", "README"))
                 .andExpect(status().isOk())
@@ -488,8 +482,7 @@ public class RegistryAPITest {
     @Test
     public void testChangelog() throws Exception {
         var resource = mockChangelog();
-        var extVersion = resource.getExtension();
-        Mockito.when(repositories.findExtensionVersion("foo", "bar", "universal", "1.0.0")).thenReturn(extVersion);
+        Mockito.when(repositories.findFileByType("foo", "bar", "universal", "1.0.0", CHANGELOG)).thenReturn(resource);
 
         mockMvc.perform(get("/api/{namespace}/{extension}/{version}/file/{fileName}", "foo", "bar", "1.0.0", "CHANGELOG"))
                 .andExpect(status().isOk())
@@ -499,8 +492,7 @@ public class RegistryAPITest {
     @Test
     public void testLicense() throws Exception {
         var resource = mockLicense();
-        var extVersion = resource.getExtension();
-        Mockito.when(repositories.findExtensionVersion("foo", "bar", "universal", "1.0.0")).thenReturn(extVersion);
+        Mockito.when(repositories.findFileByType("foo", "bar", "universal", "1.0.0", LICENSE)).thenReturn(resource);
 
         mockMvc.perform(get("/api/{namespace}/{extension}/{version}/file/{fileName}", "foo", "bar", "1.0.0", "LICENSE"))
                 .andExpect(status().isOk())
@@ -526,8 +518,8 @@ public class RegistryAPITest {
     @Test
     public void testLatestFile() throws Exception {
         var resource = mockLatest();
-        var extVersion = resource.getExtension();
-        Mockito.when(repositories.findExtensionVersion("foo", "bar", "universal", VersionAlias.LATEST)).thenReturn(extVersion);
+        Mockito.when(repositories.findFileByType("foo", "bar", "universal", "latest", FileResource.DOWNLOAD))
+                .thenReturn(resource);
 
         mockMvc.perform(get("/api/{namespace}/{extension}/{version}/file/{fileName}", "foo", "bar", "latest", "DOWNLOAD"))
                 .andExpect(status().isOk())
@@ -1290,10 +1282,8 @@ public class RegistryAPITest {
     @Test
     public void testCreateExistingNamespace() throws Exception {
         mockAccessToken();
-        var namespace = new Namespace();
-        namespace.setName("foobar");
-        Mockito.when(repositories.findNamespace("foobar"))
-                .thenReturn(namespace);
+        Mockito.when(repositories.findNamespaceName("foobar"))
+                .thenReturn("foobar");
 
         mockMvc.perform(post("/api/-/namespace/create?token={token}", "my_token")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -1939,23 +1929,16 @@ public class RegistryAPITest {
                 .thenReturn(Streamable.of(extVersion));
         Mockito.when(repositories.findActiveExtensions(namespace))
                 .thenReturn(Streamable.of(extension));
-        Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
-                .thenReturn(0L);
+        Mockito.when(repositories.hasMemberships(namespace, NamespaceMembership.ROLE_OWNER))
+                .thenReturn(false);
         Mockito.when(repositories.countActiveReviews(extension))
                 .thenReturn(0L);
         Mockito.when(repositories.findNamespace("foo"))
                 .thenReturn(namespace);
         Mockito.when(repositories.findExtensions("bar"))
                 .thenReturn(Streamable.of(extension));
-        Mockito.when(repositories.findNamespaceByPublicId("1234"))
-                .thenReturn(namespace);
         Mockito.when(repositories.findExtensionByPublicId("5678"))
                 .thenReturn(extension);
-
-//        Mockito.when(repositories.findTargetPlatformsGroupedByVersion(extension)).thenReturn();
-//        Mockito.when(repositories.findVersionsForUrls(extension, targetPlatform, extVersion.getVersion())).thenReturn(List.of(extVersion));
-//        Mockito.when(repositories.findLatestVersion(extension, targetPlatform, false, true)).thenReturn(extVersion);
-//        Mockito.when(repositories.findExtensionTargetPlatforms(extension)).thenReturn(List.of(targetPlatform));
 
         var download = new FileResource();
         download.setExtension(extVersion);
@@ -2018,11 +2001,7 @@ public class RegistryAPITest {
         resource.setType(FileResource.README);
         resource.setContent("Please read me".getBytes());
         resource.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(resource)).thenReturn(resource);
-        Mockito.when(repositories.findFileByName(extVersion, "README"))
-                .thenReturn(resource);
-        Mockito.when(repositories.findFileByType(extVersion, FileResource.README))
-                .thenReturn(resource);
+        Mockito.when(entityManager.find(FileResource.class, resource.getId())).thenReturn(resource);
         return resource;
     }
 
@@ -2034,11 +2013,7 @@ public class RegistryAPITest {
         resource.setType(FileResource.CHANGELOG);
         resource.setContent("All notable changes is documented here".getBytes());
         resource.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(resource)).thenReturn(resource);
-        Mockito.when(repositories.findFileByName(extVersion, "CHANGELOG"))
-                .thenReturn(resource);
-        Mockito.when(repositories.findFileByType(extVersion, FileResource.CHANGELOG))
-                .thenReturn(resource);
+        Mockito.when(entityManager.find(FileResource.class, resource.getId())).thenReturn(resource);
         return resource;
     }
 
@@ -2050,11 +2025,7 @@ public class RegistryAPITest {
         resource.setType(FileResource.LICENSE);
         resource.setContent("I never broke the Law! I am the law!".getBytes());
         resource.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(resource)).thenReturn(resource);
-        Mockito.when(repositories.findFileByName(extVersion, "LICENSE"))
-                .thenReturn(resource);
-        Mockito.when(repositories.findFileByType(extVersion, FileResource.LICENSE))
-                .thenReturn(resource);
+        Mockito.when(entityManager.find(FileResource.class, resource.getId())).thenReturn(resource);
         return resource;
     }
 
@@ -2066,9 +2037,7 @@ public class RegistryAPITest {
         resource.setType(FileResource.DOWNLOAD);
         resource.setContent("latest download".getBytes());
         resource.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(resource)).thenReturn(resource);
-        Mockito.when(repositories.findFileByType(extVersion, FileResource.DOWNLOAD))
-                .thenReturn(resource);
+        Mockito.when(entityManager.find(FileResource.class, resource.getId())).thenReturn(resource);
         return resource;
     }
 
@@ -2178,8 +2147,8 @@ public class RegistryAPITest {
             ownerMem.setRole(NamespaceMembership.ROLE_OWNER);
             Mockito.when(repositories.findMemberships(namespace, NamespaceMembership.ROLE_OWNER))
                     .thenReturn(Streamable.of(ownerMem));
-            Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
-                    .thenReturn(1L);
+            Mockito.when(repositories.hasMemberships(namespace, NamespaceMembership.ROLE_OWNER))
+                    .thenReturn(true);
             Mockito.when(repositories.findMembership(token.getUser(), namespace))
                     .thenReturn(ownerMem);
             Mockito.when(repositories.isVerified(namespace, token.getUser()))
@@ -2219,16 +2188,16 @@ public class RegistryAPITest {
             ownerMem.setRole(NamespaceMembership.ROLE_OWNER);
             Mockito.when(repositories.findMemberships(namespace, NamespaceMembership.ROLE_OWNER))
                     .thenReturn(Streamable.of(ownerMem));
-            Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
-                    .thenReturn(1L);
+            Mockito.when(repositories.hasMemberships(namespace, NamespaceMembership.ROLE_OWNER))
+                    .thenReturn(true);
             if (mode.equals("privileged")) {
                 token.getUser().setRole(UserData.ROLE_PRIVILEGED);
             }
         } else {
             Mockito.when(repositories.findMemberships(namespace, NamespaceMembership.ROLE_OWNER))
                     .thenReturn(Streamable.empty());
-            Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
-                    .thenReturn(0L);
+            Mockito.when(repositories.hasMemberships(namespace, NamespaceMembership.ROLE_OWNER))
+                    .thenReturn(false);
         }
 
         Mockito.when(entityManager.merge(any(Extension.class)))
@@ -2393,6 +2362,7 @@ public class RegistryAPITest {
                 RepositoryService repositories,
                 GoogleCloudStorageService googleStorage,
                 AzureBlobStorageService azureStorage,
+                LocalStorageService localStorage,
                 AzureDownloadCountService azureDownloadCountService,
                 SearchUtilService search,
                 CacheService cache,
@@ -2403,10 +2373,16 @@ public class RegistryAPITest {
                     googleStorage,
                     azureStorage,
                     azureDownloadCountService,
+                    localStorage,
                     search,
                     cache,
                     entityManager
             );
+        }
+
+        @Bean
+        LocalStorageService localStorageService(EntityManager entityManager) {
+            return new LocalStorageService(entityManager);
         }
 
         @Bean

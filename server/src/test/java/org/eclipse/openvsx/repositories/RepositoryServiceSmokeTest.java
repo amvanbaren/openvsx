@@ -9,6 +9,8 @@
  ********************************************************************************/
 package org.eclipse.openvsx.repositories;
 
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.json.QueryRequest;
 import org.junit.jupiter.api.Test;
@@ -19,13 +21,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
-import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
 import java.lang.reflect.Modifier;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
@@ -88,7 +87,7 @@ class RepositoryServiceSmokeTest {
                 () -> repositories.countActiveReviews(null),
                 () -> repositories.countExtensions(),
                 () -> repositories.countExtensions("name", "namespace"),
-                () -> repositories.countMemberships(namespace, "role"),
+                () -> repositories.hasMemberships(namespace, "role"),
                 () -> repositories.isVerified(namespace, userData),
                 () -> repositories.countNamespaces(),
                 () -> repositories.countPublishersThatClaimedNamespaceOwnership(),
@@ -125,12 +124,11 @@ class RepositoryServiceSmokeTest {
                 () -> repositories.findMemberships(namespace, "role"),
                 () -> repositories.findMemberships(userData, "role"),
                 () -> repositories.findNamespace("name"),
-                () -> repositories.findNamespaceByPublicId("publicId"),
                 () -> repositories.findOrphanNamespaces(),
                 () -> repositories.findPersistedLogsAfter(NOW),
                 () -> repositories.findTargetPlatformVersions("version", "extensionName", "namespaceName"),
                 () -> repositories.findUserByLoginName("provider", "loginName"),
-                () -> repositories.findUsersByLoginNameStartingWith("loginNameStart"),
+                () -> repositories.findUsersByLoginNameStartingWith("loginNameStart", 1),
                 () -> repositories.findVersion("version", "targetPlatform", extension),
                 () -> repositories.findVersion("version", "targetPlatform", "extensionName", "namespace"),
                 () -> repositories.findVersions(extension),
@@ -163,8 +161,6 @@ class RepositoryServiceSmokeTest {
                 () -> repositories.findActiveExtensionsById(LONG_LIST),
                 () -> repositories.findActiveExtensionsByPublicId(STRING_LIST, "namespaceName"),
                 () -> repositories.findNamespaceMemberships(LONG_LIST),
-                () -> repositories.findActiveExtensionVersionsByNamespaceName("targetPlatform", "namespaceName"),
-                () -> repositories.findActiveExtensionVersionsByExtensionName("targetPlatform", "extensionName", "namespaceName"),
                 () -> repositories.findActiveExtensionVersionsByExtensionName("targetPlatform", "extensionName"),
                 () -> repositories.findAllNotMatchingByExtensionId(STRING_LIST),
                 () -> repositories.getAverageReviewRating(null),
@@ -184,7 +180,7 @@ class RepositoryServiceSmokeTest {
                 () -> repositories.findVersionStringsSorted(extension, "targetPlatform", true),
                 () -> repositories.findActiveVersions(queryRequest),
                 () -> repositories.findActiveVersionStringsSorted(LONG_LIST,"targetPlatform"),
-                () -> repositories.findActiveVersionReferencesSorted(List.of(extension)),
+                () -> repositories.findActiveVersionReferencesSorted(List.of(1L)),
                 () -> repositories.findAllPublicIds(),
                 () -> repositories.findPublicId("namespaceName", "extensionName"),
                 () -> repositories.findPublicId("namespaceName.extensionName"),
@@ -202,7 +198,17 @@ class RepositoryServiceSmokeTest {
                 () -> repositories.findLatestVersion(extension, "targetPlatform", false, false),
                 () -> repositories.findLatestVersions(namespace),
                 () -> repositories.findLatestVersions(userData),
-                () -> repositories.findExtensionTargetPlatforms(extension)
+                () -> repositories.findExtensionTargetPlatforms(extension),
+                () -> repositories.isNamespaceOwner(userData, namespace),
+                () -> repositories.findMembershipsForOwner(userData,"namespaceName"),
+                () -> repositories.findNamespaceName("namespaceName"),
+                () -> repositories.findMemberships("namespaceName"),
+                () -> repositories.findActiveExtensionNames(namespace),
+                () -> repositories.namespaceExists("namespaceName"),
+                () -> repositories.findFileByType("namespaceName", "extensionName", "targetPlatform", "version", "type"),
+                () -> repositories.findFileByName("namespaceName", "extensionName", "targetPlatform", "version", "name"),
+                () -> repositories.findVersionsByUser(userData, false),
+                () -> repositories.deleteFiles(extVersion)
         );
 
         // check that we did not miss anything

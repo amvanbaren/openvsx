@@ -35,18 +35,18 @@ public class CacheService {
     public static final String GENERATOR_LATEST_EXTENSION_VERSION = "latestExtensionVersionCacheKeyGenerator";
 
     private final CacheManager cacheManager;
-    private final RepositoryService repositoryService;
+    private final RepositoryService repositories;
     private final ExtensionJsonCacheKeyGenerator extensionJsonCacheKey;
     private final LatestExtensionVersionCacheKeyGenerator latestExtensionVersionCacheKey;
 
     public CacheService(
             CacheManager cacheManager,
-            RepositoryService repositoryService,
+            RepositoryService repositories,
             ExtensionJsonCacheKeyGenerator extensionJsonCacheKey,
             LatestExtensionVersionCacheKeyGenerator latestExtensionVersionCacheKey
     ) {
         this.cacheManager = cacheManager;
-        this.repositoryService = repositoryService;
+        this.repositories = repositories;
         this.extensionJsonCacheKey = extensionJsonCacheKey;
         this.latestExtensionVersionCacheKey = latestExtensionVersionCacheKey;
     }
@@ -70,11 +70,11 @@ public class CacheService {
     }
 
     public void evictExtensionJsons(String namespaceName, String extensionName) {
-        evictExtensionJsons(repositoryService.findExtension(extensionName, namespaceName));
+        evictExtensionJsons(repositories.findExtension(extensionName, namespaceName));
     }
 
     public void evictExtensionJsons(UserData user) {
-        repositoryService.findVersions(user)
+        repositories.findVersions(user)
                 .map(ExtensionVersion::getExtension)
                 .toSet()
                 .forEach(this::evictExtensionJsons);

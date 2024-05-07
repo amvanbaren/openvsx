@@ -9,27 +9,12 @@
  ********************************************************************************/
 package org.eclipse.openvsx.adapter;
 
-import static org.eclipse.openvsx.entities.FileResource.*;
-import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import jakarta.persistence.EntityManager;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.common.io.CharStreams;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import jakarta.persistence.EntityManager;
 import org.eclipse.openvsx.ExtensionValidator;
 import org.eclipse.openvsx.MockTransactionTemplate;
 import org.eclipse.openvsx.UserService;
@@ -45,10 +30,7 @@ import org.eclipse.openvsx.search.SearchUtilService;
 import org.eclipse.openvsx.security.OAuth2UserServices;
 import org.eclipse.openvsx.security.SecurityConfig;
 import org.eclipse.openvsx.security.TokenService;
-import org.eclipse.openvsx.storage.AzureBlobStorageService;
-import org.eclipse.openvsx.storage.AzureDownloadCountService;
-import org.eclipse.openvsx.storage.GoogleCloudStorageService;
-import org.eclipse.openvsx.storage.StorageUtilService;
+import org.eclipse.openvsx.storage.*;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.eclipse.openvsx.util.VersionService;
 import org.junit.jupiter.api.Test;
@@ -68,6 +50,19 @@ import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static org.eclipse.openvsx.entities.FileResource.*;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(VSCodeAPI.class)
 @AutoConfigureWebClient
@@ -810,17 +805,18 @@ public class VSCodeAPITest {
                 .thenReturn(extVersion);
         Mockito.when(repositories.findVersions(extension))
                 .thenReturn(Streamable.of(extVersion));
-        Mockito.when(repositories.countMemberships(namespace, NamespaceMembership.ROLE_OWNER))
-                .thenReturn(0L);
         var extensionFile = new FileResource();
+        extensionFile.setId(10L);
         extensionFile.setExtension(extVersion);
         extensionFile.setName("redhat.vscode-yaml-0.5.2.vsix");
         extensionFile.setType(FileResource.DOWNLOAD);
         extensionFile.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(extensionFile)).thenReturn(extensionFile);
+        Mockito.when(entityManager.find(FileResource.class, extensionFile.getId())).thenReturn(extensionFile);
         Mockito.when(repositories.findFileByType(extVersion, FileResource.DOWNLOAD))
                 .thenReturn(extensionFile);
+
         var manifestFile = new FileResource();
+        manifestFile.setId(11L);
         manifestFile.setExtension(extVersion);
         manifestFile.setName("package.json");
         manifestFile.setType(FileResource.MANIFEST);
@@ -830,7 +826,7 @@ public class VSCodeAPITest {
             manifestContent.put("target", targetPlatform);
         manifestFile.setContent(new ObjectMapper().writeValueAsBytes(manifestContent));
         manifestFile.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(manifestFile)).thenReturn(manifestFile);
+        Mockito.when(entityManager.find(FileResource.class, manifestFile.getId())).thenReturn(manifestFile);
         Mockito.when(repositories.findFileByType(extVersion, FileResource.MANIFEST))
                 .thenReturn(manifestFile);
         var readmeFile = new FileResource();
@@ -838,7 +834,7 @@ public class VSCodeAPITest {
         readmeFile.setName("README.md");
         readmeFile.setType(FileResource.README);
         readmeFile.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(readmeFile)).thenReturn(readmeFile);
+        Mockito.when(entityManager.find(FileResource.class, readmeFile.getId())).thenReturn(readmeFile);
         Mockito.when(repositories.findFileByType(extVersion, FileResource.README))
                 .thenReturn(readmeFile);
         var changelogFile = new FileResource();
@@ -846,7 +842,7 @@ public class VSCodeAPITest {
         changelogFile.setName("CHANGELOG.md");
         changelogFile.setType(FileResource.CHANGELOG);
         changelogFile.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(changelogFile)).thenReturn(changelogFile);
+        Mockito.when(entityManager.find(FileResource.class, changelogFile.getId())).thenReturn(changelogFile);
         Mockito.when(repositories.findFileByType(extVersion, FileResource.CHANGELOG))
                 .thenReturn(changelogFile);
         var licenseFile = new FileResource();
@@ -854,7 +850,7 @@ public class VSCodeAPITest {
         licenseFile.setName("LICENSE.txt");
         licenseFile.setType(FileResource.LICENSE);
         licenseFile.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(licenseFile)).thenReturn(licenseFile);
+        Mockito.when(entityManager.find(FileResource.class, licenseFile.getId())).thenReturn(licenseFile);
         Mockito.when(repositories.findFileByType(extVersion, FileResource.LICENSE))
                 .thenReturn(licenseFile);
         var iconFile = new FileResource();
@@ -862,7 +858,7 @@ public class VSCodeAPITest {
         iconFile.setName("icon128.png");
         iconFile.setType(FileResource.ICON);
         iconFile.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(iconFile)).thenReturn(iconFile);
+        Mockito.when(entityManager.find(FileResource.class, iconFile.getId())).thenReturn(iconFile);
         Mockito.when(repositories.findFileByType(extVersion, FileResource.ICON))
                 .thenReturn(iconFile);
         var vsixManifestFile = new FileResource();
@@ -870,7 +866,7 @@ public class VSCodeAPITest {
         vsixManifestFile.setName("extension.vsixmanifest");
         vsixManifestFile.setType(VSIXMANIFEST);
         vsixManifestFile.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(vsixManifestFile)).thenReturn(vsixManifestFile);
+        Mockito.when(entityManager.find(FileResource.class, vsixManifestFile.getId())).thenReturn(vsixManifestFile);
         Mockito.when(repositories.findFileByType(extVersion, VSIXMANIFEST))
                 .thenReturn(vsixManifestFile);
         var signatureFile = new FileResource();
@@ -878,7 +874,7 @@ public class VSCodeAPITest {
         signatureFile.setName("redhat.vscode-yaml-0.5.2.sigzip");
         signatureFile.setType(FileResource.DOWNLOAD_SIG);
         signatureFile.setStorageType(FileResource.STORAGE_DB);
-        Mockito.when(entityManager.merge(signatureFile)).thenReturn(signatureFile);
+        Mockito.when(entityManager.find(FileResource.class, signatureFile.getId())).thenReturn(signatureFile);
         Mockito.when(repositories.findFileByType(extVersion, FileResource.DOWNLOAD_SIG))
                 .thenReturn(signatureFile);
         var webResourceFile = new FileResource();
@@ -887,7 +883,7 @@ public class VSCodeAPITest {
         webResourceFile.setType(FileResource.RESOURCE);
         webResourceFile.setStorageType(STORAGE_DB);
         webResourceFile.setContent("logo.png".getBytes());
-        Mockito.when(entityManager.merge(webResourceFile)).thenReturn(webResourceFile);
+        Mockito.when(entityManager.find(FileResource.class, webResourceFile.getId())).thenReturn(webResourceFile);
         Mockito.when(repositories.findFileByTypeAndName(extVersion, FileResource.RESOURCE, "extension/img/logo.png"))
                 .thenReturn(webResourceFile);
         Mockito.when(repositories.findFilesByType(anyCollection(), anyCollection())).thenAnswer(invocation -> {
@@ -968,6 +964,7 @@ public class VSCodeAPITest {
                 RepositoryService repositories,
                 GoogleCloudStorageService googleStorage,
                 AzureBlobStorageService azureStorage,
+                LocalStorageService localStorage,
                 AzureDownloadCountService azureDownloadCountService,
                 SearchUtilService search,
                 CacheService cache,
@@ -978,10 +975,16 @@ public class VSCodeAPITest {
                     googleStorage,
                     azureStorage,
                     azureDownloadCountService,
+                    localStorage,
                     search,
                     cache,
                     entityManager
             );
+        }
+
+        @Bean
+        LocalStorageService localStorage(EntityManager entityManager) {
+            return new LocalStorageService(entityManager);
         }
 
         @Bean
