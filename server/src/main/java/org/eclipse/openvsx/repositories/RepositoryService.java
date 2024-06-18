@@ -609,4 +609,8 @@ public class RepositoryService {
     public List<String> findExtensionTargetPlatforms(Extension extension) {
         return extensionVersionJooqRepo.findDistinctTargetPlatforms(extension);
     }
+
+    public ExtensionVersion findLatestReplacement(long extensionId, String targetPlatform, boolean onlyPreRelease, boolean onlyActive) {
+        return extensionVersionJooqRepo.findLatestReplacement(extensionId, targetPlatform, onlyPreRelease, onlyActive);
+    }
 }

@@ -269,6 +269,32 @@ export const ExtensionDetail: FunctionComponent = () => {
     };
 
     const renderBanner = (extension: Extension, themeType: 'light' | 'dark', themeColor: string): ReactNode => {
+        if (extension.deprecated) {
+            return <Paper
+                sx={{
+                    display: 'flex',
+                    maxWidth: '800px',
+                    p: 2,
+                    mt: 0,
+                    mr: { xs: 0, sm: 0, md: 6, lg: 6, xl: 6 },
+                    mb: { xs: 2, sm: 2, md: 4, lg: 4, xl: 4 },
+                    ml: { xs: 0, sm: 0, md: 6, lg: 6, xl: 6 },
+                    bgcolor: `warning.${themeType}`,
+                    color: themeColor,
+                    '& a': {
+                        color: themeColor,
+                        textDecoration: 'underline'
+                    }
+                }}
+            >
+                <WarningIcon fontSize='large' />
+                <Box ml={1}>
+                    This extension has been deprecated. {extension.replacement && <>Use <Link href={extension.replacement.url}>
+                        {extension.replacement.displayName}
+                    </Link> instead.</>}
+                </Box>
+            </Paper>;
+        }
         if (!extension.verified) {
             return <Paper
                 sx={{
@@ -309,6 +335,7 @@ export const ExtensionDetail: FunctionComponent = () => {
         const numberFormat = new Intl.NumberFormat(undefined, { notation: 'compact', compactDisplay: 'short' } as any);
         const downloadCountFormatted = numberFormat.format(extension.downloadCount || 0);
         const reviewCountFormatted = numberFormat.format(extension.reviewCount || 0);
+        const textDecoration = extension.deprecated ? 'line-through' : undefined
         const previewBadgeStyle = (theme: Theme) => ({
             "& .MuiBadge-badge": {
                 top: theme.spacing(1),
@@ -319,7 +346,7 @@ export const ExtensionDetail: FunctionComponent = () => {
         return (
         <Box overflow='auto' sx={{ pt: 1, overflow: 'visible' }}>
             <Badge color='secondary' badgeContent='Preview' invisible={!extension.preview} sx={previewBadgeStyle}>
-                <Typography variant='h5' sx={{ fontWeight: 'bold', mb: 1 }}>
+                <Typography variant='h5' sx={{ fontWeight: 'bold', mb: 1, textDecoration }}>
                     { extension.displayName ?? extension.name}
                 </Typography>
             </Badge>

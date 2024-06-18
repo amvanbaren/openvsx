@@ -55,6 +55,12 @@ public class Extension implements Serializable {
 
     LocalDateTime lastUpdatedDate;
 
+    boolean deprecated;
+
+    Extension replacement;
+
+    boolean downloadable;
+
     /**
      * Convert to a search entity for Elasticsearch.
      */
@@ -163,6 +169,30 @@ public class Extension implements Serializable {
         return versions;
     }
 
+    public boolean isDeprecated() {
+        return deprecated;
+    }
+
+    public void setDeprecated(boolean deprecated) {
+        this.deprecated = deprecated;
+    }
+
+    public Extension getReplacement() {
+        return replacement;
+    }
+
+    public void setReplacement(Extension replacement) {
+        this.replacement = replacement;
+    }
+
+    public boolean isDownloadable() {
+        return downloadable;
+    }
+
+    public void setDownloadable(boolean downloadable) {
+        this.downloadable = downloadable;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -178,11 +208,17 @@ public class Extension implements Serializable {
                 && Objects.equals(averageRating, extension.averageRating)
                 && Objects.equals(reviewCount, extension.reviewCount)
                 && Objects.equals(publishedDate, extension.publishedDate)
-                && Objects.equals(lastUpdatedDate, extension.lastUpdatedDate);
+                && Objects.equals(lastUpdatedDate, extension.lastUpdatedDate)
+                && Objects.equals(deprecated, extension.deprecated)
+                && Objects.equals(replacement, extension.replacement)
+                && Objects.equals(downloadable, extension.downloadable);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, publicId, name, namespace, versions, active, averageRating, reviewCount, downloadCount, publishedDate, lastUpdatedDate);
+        return Objects.hash(
+                id, publicId, name, namespace, versions, active, averageRating, reviewCount, downloadCount,
+                publishedDate, lastUpdatedDate, deprecated, replacement, downloadable
+        );
     }
 }

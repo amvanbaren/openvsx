@@ -136,6 +136,8 @@ public class PublishExtensionVersionHandler {
                 extension.setName(extensionName);
                 extension.setNamespace(namespace);
                 extension.setPublishedDate(extVersion.getTimestamp());
+                extension.setDeprecated(false);
+                extension.setDownloadable(true);
 
                 entityManager.persist(extension);
             } else {

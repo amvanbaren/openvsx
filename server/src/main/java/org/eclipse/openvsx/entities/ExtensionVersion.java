@@ -14,6 +14,7 @@ import jakarta.persistence.*;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.openvsx.json.ExtensionJson;
 import org.eclipse.openvsx.json.ExtensionReferenceJson;
+import org.eclipse.openvsx.json.ExtensionReplacementJson;
 import org.eclipse.openvsx.json.SearchEntryJson;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.eclipse.openvsx.util.TimeUtil;
@@ -179,6 +180,8 @@ public class ExtensionVersion implements Serializable {
         if (this.getBundledExtensions() != null) {
             json.bundledExtensions = toExtensionReferenceJson(this.getBundledExtensions());
         }
+
+        json.deprecated = extension.isDeprecated();
         return json;
     }
 

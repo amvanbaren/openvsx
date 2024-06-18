@@ -108,6 +108,13 @@ export interface Extension {
     // key: target platform, value: download link
     downloads: { [targetPlatform: string]: UrlString };
     allTargetPlatformVersions?: VersionTargetPlatforms[];
+
+    deprecated: boolean
+    replacement?:{
+        url: string
+        displayName: string
+    }
+    downloadable: boolean
 }
 
 export interface Badge {
