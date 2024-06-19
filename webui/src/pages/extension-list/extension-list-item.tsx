@@ -53,6 +53,7 @@ export const ExtensionListItem: FunctionComponent<ExtensionListItemProps> = prop
     const route = createRoute([ExtensionDetailRoutes.ROOT, extension.namespace, extension.name]);
     const numberFormat = new Intl.NumberFormat(undefined, { notation: 'compact', compactDisplay: 'short' } as any);
     const downloadCountFormatted = numberFormat.format(extension.downloadCount || 0);
+    const textDecoration = extension.deprecated ? 'line-through' : undefined
     return <>
         <Fade in={true} timeout={{ enter: ((filterSize + idx) % filterSize) * 200 }}>
             <Grid item xs={12} sm={3} md={2} title={extension.displayName || extension.name} sx={{ maxWidth: '14.875rem', minWidth: '11.875rem' }}>
@@ -78,7 +79,7 @@ export const ExtensionListItem: FunctionComponent<ExtensionListItemProps> = prop
                             />
                         </Box>
                         <Box display='flex' justifyContent='center'>
-                            <Typography variant='h6' noWrap style={{ fontSize: '1.15rem' }}>
+                            <Typography variant='h6' noWrap style={{ fontSize: '1.15rem', textDecoration}}>
                                 {extension.displayName || extension.name}
                             </Typography>
                         </Box>

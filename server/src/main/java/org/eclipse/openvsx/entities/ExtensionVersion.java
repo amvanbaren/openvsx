@@ -214,6 +214,7 @@ public class ExtensionVersion implements Serializable {
         entry.timestamp = TimeUtil.toUTCString(this.getTimestamp());
         entry.displayName = this.getDisplayName();
         entry.description = this.getDescription();
+        entry.deprecated = extension.isDeprecated();
         return entry;
     }
 

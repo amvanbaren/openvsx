@@ -26,12 +26,6 @@ import org.eclipse.openvsx.jooq.tables.JobrunrJobsStats;
 import org.eclipse.openvsx.jooq.tables.JobrunrMetadata;
 import org.eclipse.openvsx.jooq.tables.JobrunrMigrations;
 import org.eclipse.openvsx.jooq.tables.JobrunrRecurringJobs;
-import org.eclipse.openvsx.jooq.tables.JrJobrunrBackgroundjobservers;
-import org.eclipse.openvsx.jooq.tables.JrJobrunrJobs;
-import org.eclipse.openvsx.jooq.tables.JrJobrunrJobsStats;
-import org.eclipse.openvsx.jooq.tables.JrJobrunrMetadata;
-import org.eclipse.openvsx.jooq.tables.JrJobrunrMigrations;
-import org.eclipse.openvsx.jooq.tables.JrJobrunrRecurringJobs;
 import org.eclipse.openvsx.jooq.tables.MigrationItem;
 import org.eclipse.openvsx.jooq.tables.Namespace;
 import org.eclipse.openvsx.jooq.tables.NamespaceMembership;
@@ -162,36 +156,6 @@ public class Public extends SchemaImpl {
     public final JobrunrRecurringJobs JOBRUNR_RECURRING_JOBS = JobrunrRecurringJobs.JOBRUNR_RECURRING_JOBS;
 
     /**
-     * The table <code>public.jr_jobrunr_backgroundjobservers</code>.
-     */
-    public final JrJobrunrBackgroundjobservers JR_JOBRUNR_BACKGROUNDJOBSERVERS = JrJobrunrBackgroundjobservers.JR_JOBRUNR_BACKGROUNDJOBSERVERS;
-
-    /**
-     * The table <code>public.jr_jobrunr_jobs</code>.
-     */
-    public final JrJobrunrJobs JR_JOBRUNR_JOBS = JrJobrunrJobs.JR_JOBRUNR_JOBS;
-
-    /**
-     * The table <code>public.jr_jobrunr_jobs_stats</code>.
-     */
-    public final JrJobrunrJobsStats JR_JOBRUNR_JOBS_STATS = JrJobrunrJobsStats.JR_JOBRUNR_JOBS_STATS;
-
-    /**
-     * The table <code>public.jr_jobrunr_metadata</code>.
-     */
-    public final JrJobrunrMetadata JR_JOBRUNR_METADATA = JrJobrunrMetadata.JR_JOBRUNR_METADATA;
-
-    /**
-     * The table <code>public.jr_jobrunr_migrations</code>.
-     */
-    public final JrJobrunrMigrations JR_JOBRUNR_MIGRATIONS = JrJobrunrMigrations.JR_JOBRUNR_MIGRATIONS;
-
-    /**
-     * The table <code>public.jr_jobrunr_recurring_jobs</code>.
-     */
-    public final JrJobrunrRecurringJobs JR_JOBRUNR_RECURRING_JOBS = JrJobrunrRecurringJobs.JR_JOBRUNR_RECURRING_JOBS;
-
-    /**
      * The table <code>public.migration_item</code>.
      */
     public final MigrationItem MIGRATION_ITEM = MigrationItem.MIGRATION_ITEM;
@@ -301,12 +265,6 @@ public class Public extends SchemaImpl {
             JobrunrMetadata.JOBRUNR_METADATA,
             JobrunrMigrations.JOBRUNR_MIGRATIONS,
             JobrunrRecurringJobs.JOBRUNR_RECURRING_JOBS,
-            JrJobrunrBackgroundjobservers.JR_JOBRUNR_BACKGROUNDJOBSERVERS,
-            JrJobrunrJobs.JR_JOBRUNR_JOBS,
-            JrJobrunrJobsStats.JR_JOBRUNR_JOBS_STATS,
-            JrJobrunrMetadata.JR_JOBRUNR_METADATA,
-            JrJobrunrMigrations.JR_JOBRUNR_MIGRATIONS,
-            JrJobrunrRecurringJobs.JR_JOBRUNR_RECURRING_JOBS,
             MigrationItem.MIGRATION_ITEM,
             Namespace.NAMESPACE,
             NamespaceMembership.NAMESPACE_MEMBERSHIP,

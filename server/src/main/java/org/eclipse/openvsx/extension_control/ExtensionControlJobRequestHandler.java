@@ -24,20 +24,17 @@ public class ExtensionControlJobRequestHandler implements JobRequestHandler<Hand
 
     protected final Logger logger = LoggerFactory.getLogger(ExtensionControlJobRequestHandler.class);
 
-    private final RestTemplate restTemplate;
     private final AdminService admin;
     private final ExtensionControlService service;
 
-    public ExtensionControlJobRequestHandler(RestTemplate restTemplate, AdminService admin, ExtensionControlService service) {
-        this.restTemplate = restTemplate;
+    public ExtensionControlJobRequestHandler(AdminService admin, ExtensionControlService service) {
         this.admin = admin;
         this.service = service;
     }
 
     @Override
     public void run(HandlerJobRequest<?> jobRequest) throws Exception {
-        var url = "https://github.com/open-vsx/publish-extensions/raw/master/extension-control/extensions.json";
-        var json = restTemplate.getForObject(url, JsonNode.class);
+        var json = service.getExtensionControlJson();
         processMaliciousExtensions(json);
         processDeprecatedExtensions(json);
     }

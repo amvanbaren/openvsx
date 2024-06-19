@@ -57,6 +57,7 @@ export interface SearchEntry {
     downloadCount?: number;
     displayName?: string;
     description?: string;
+    deprecated: boolean;
 }
 
 export const VERSION_ALIASES = ['latest', 'pre-release'];

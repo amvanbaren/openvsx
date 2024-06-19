@@ -21,6 +21,7 @@ import org.eclipse.openvsx.ExtensionValidator;
 import org.eclipse.openvsx.UserService;
 import org.eclipse.openvsx.adapter.VSCodeIdNewExtensionJobRequest;
 import org.eclipse.openvsx.entities.*;
+import org.eclipse.openvsx.extension_control.ExtensionControlService;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.util.ErrorResultException;
 import org.eclipse.openvsx.util.NamingUtil;
@@ -49,6 +50,7 @@ public class PublishExtensionVersionHandler {
     private final JobRequestScheduler scheduler;
     private final UserService users;
     private final ExtensionValidator validator;
+    private final ExtensionControlService extensionControl;
     private final ObservationRegistry  observations;
 
     public PublishExtensionVersionHandler(
@@ -59,6 +61,7 @@ public class PublishExtensionVersionHandler {
             JobRequestScheduler scheduler,
             UserService users,
             ExtensionValidator validator,
+            ExtensionControlService extensionControl,
             ObservationRegistry  observations
     ) {
         this.service = service;
@@ -68,6 +71,7 @@ public class PublishExtensionVersionHandler {
         this.scheduler = scheduler;
         this.users = users;
         this.validator = validator;
+        this.extensionControl = extensionControl;
         this.observations = observations;
     }
 
@@ -113,6 +117,9 @@ public class PublishExtensionVersionHandler {
             var nameIssue = validator.validateExtensionName(extensionName);
             if (nameIssue.isPresent()) {
                 throw new ErrorResultException(nameIssue.get().toString());
+            }
+            if(isMalicious(namespaceName, extensionName)) {
+                throw new ErrorResultException(NamingUtil.toExtensionId(namespaceName, extensionName) + " is a known malicious extension");
             }
 
             var version = processor.getVersion();
@@ -166,6 +173,11 @@ public class PublishExtensionVersionHandler {
             entityManager.persist(extVersion);
             return extVersion;
         });
+    }
+
+    private boolean isMalicious(String namespace, String extension) {
+        var maliciousExtensionIds = extensionControl.getMaliciousExtensionIds();
+        return maliciousExtensionIds.contains(NamingUtil.toExtensionId(namespace, extension));
     }
 
     private String checkDependency(String dependency) {

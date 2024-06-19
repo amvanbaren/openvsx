@@ -32,6 +32,7 @@ public class CacheService {
     public static final String CACHE_NAMESPACE_DETAILS_JSON = "namespace.details.json";
     public static final String CACHE_AVERAGE_REVIEW_RATING = "average.review.rating";
     public static final String CACHE_SITEMAP = "sitemap";
+    public static final String CACHE_MALICIOUS_EXTENSIONS = "malicious.extensions";
 
     public static final String GENERATOR_EXTENSION_JSON = "extensionJsonCacheKeyGenerator";
     public static final String GENERATOR_LATEST_EXTENSION_VERSION = "latestExtensionVersionCacheKeyGenerator";

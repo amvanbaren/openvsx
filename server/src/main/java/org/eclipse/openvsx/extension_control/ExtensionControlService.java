@@ -9,30 +9,55 @@
  * ****************************************************************************** */
 package org.eclipse.openvsx.extension_control;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.eclipse.openvsx.entities.UserData;
 import org.eclipse.openvsx.migration.HandlerJobRequest;
 import org.eclipse.openvsx.repositories.RepositoryService;
+import org.eclipse.openvsx.search.SearchUtilService;
 import org.jobrunr.scheduling.JobRequestScheduler;
 import org.jobrunr.scheduling.cron.Cron;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import static org.eclipse.openvsx.cache.CacheService.CACHE_MALICIOUS_EXTENSIONS;
 
 @Component
 public class ExtensionControlService {
 
+    protected final Logger logger = LoggerFactory.getLogger(ExtensionControlService.class);
+
     private final JobRequestScheduler scheduler;
     private final RepositoryService repositories;
     private final EntityManager entityManager;
+    private final SearchUtilService search;
+    private final RestTemplate restTemplate;
 
-    public ExtensionControlService(JobRequestScheduler scheduler, RepositoryService repositories, EntityManager entityManager) {
+    public ExtensionControlService(
+            JobRequestScheduler scheduler,
+            RepositoryService repositories,
+            EntityManager entityManager,
+            SearchUtilService search,
+            RestTemplate restTemplate
+    ) {
         this.scheduler = scheduler;
         this.repositories = repositories;
         this.entityManager = entityManager;
+        this.search = search;
+        this.restTemplate = restTemplate;
     }
 
     @EventListener
@@ -60,11 +85,34 @@ public class ExtensionControlService {
             return;
         }
 
+        var wasDeprecated = extension.isDeprecated();
         extension.setDeprecated(deprecated);
         extension.setDownloadable(downloadable);
         if(replacementId != null) {
             var replacement = repositories.findExtension(replacementId.extension(), replacementId.namespace());
             extension.setReplacement(replacement);
         }
+        if(deprecated != wasDeprecated) {
+            search.updateSearchEntry(extension);
+        }
+    }
+
+    public JsonNode getExtensionControlJson() {
+        var url = "https://github.com/open-vsx/publish-extensions/raw/master/extension-control/extensions.json";
+        return restTemplate.getForObject(url, JsonNode.class);
+    }
+
+    @Cacheable(CACHE_MALICIOUS_EXTENSIONS)
+    public List<String> getMaliciousExtensionIds() {
+        var json = getExtensionControlJson();
+        var malicious = json.get("malicious");
+        if(!malicious.isArray()) {
+            logger.error("field 'malicious' is not an array");
+            return Collections.emptyList();
+        }
+
+        var list = new ArrayList<String>();
+        malicious.forEach(node -> list.add(node.asText()));
+        return list;
     }
 }
