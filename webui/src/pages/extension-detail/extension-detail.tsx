@@ -10,7 +10,7 @@
 
 import * as React from 'react';
 import { ChangeEvent, FunctionComponent, ReactElement, ReactNode, useContext, useEffect, useState, useRef } from 'react';
-import { Typography, Box, Theme, Container, Link, Avatar, Paper, Badge, SxProps, Tabs, Tab } from '@mui/material';
+import { Typography, Box, Theme, Container, Link, Avatar, Paper, Badge, SxProps, Tabs, Tab, Stack } from '@mui/material';
 import { Link as RouteLink, useNavigate, useParams } from 'react-router-dom';
 import SaveAltIcon from '@mui/icons-material/SaveAlt';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
@@ -352,12 +352,14 @@ export const ExtensionDetail: FunctionComponent = () => {
                 <Typography sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{extension.description}</Typography>
             </Box>
             <Box mt={2} mb={2}>
-                <WarningIcon fontSize='small' />
-                <Typography sx={{ml: 1}}>
-                    This extension has been deprecated.{extension.replacement && <>&nbsp;Use <Link href={extension.replacement.url}>
-                        {extension.replacement.displayName}
-                    </Link> instead.</>}
-                </Typography>
+                <Stack direction="row" alignItems="center" gap={1}>
+                    <WarningIcon fontSize='small' />
+                    <Typography>
+                        This extension has been deprecated.{extension.replacement && <>&nbsp;Use <Link href={extension.replacement.url}>
+                            {extension.replacement.displayName}
+                        </Link> instead.</>}
+                    </Typography>
+                </Stack>
             </Box>
             <Box
                 sx={{
