@@ -111,7 +111,7 @@ export interface Extension {
     allTargetPlatformVersions?: VersionTargetPlatforms[];
 
     deprecated: boolean
-    replacement?:{
+    replacement?: {
         url: string
         displayName: string
     }

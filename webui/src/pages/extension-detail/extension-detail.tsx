@@ -352,7 +352,7 @@ export const ExtensionDetail: FunctionComponent = () => {
                 <Typography sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{extension.description}</Typography>
             </Box>
             <Box mt={2} mb={2}>
-                <Stack direction="row" alignItems="center" gap={1}>
+                <Stack direction='row' alignItems='center' gap={1}>
                     <WarningIcon fontSize='small' />
                     <Typography>
                         This extension has been deprecated.{extension.replacement && <>&nbsp;Use <Link href={extension.replacement.url}>
