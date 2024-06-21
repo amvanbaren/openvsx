@@ -9,7 +9,6 @@
  * ****************************************************************************** */
 package org.eclipse.openvsx.extension_control;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
@@ -22,12 +21,14 @@ import org.jobrunr.scheduling.JobRequestScheduler;
 import org.jobrunr.scheduling.cron.Cron;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
+import java.net.URL;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,25 +45,29 @@ public class ExtensionControlService {
     private final RepositoryService repositories;
     private final EntityManager entityManager;
     private final SearchUtilService search;
-    private final RestTemplate restTemplate;
+
+    @Value("${ovsx.extension-control.update-on-start:false}")
+    boolean updateOnStart;
 
     public ExtensionControlService(
             JobRequestScheduler scheduler,
             RepositoryService repositories,
             EntityManager entityManager,
-            SearchUtilService search,
-            RestTemplate restTemplate
+            SearchUtilService search
     ) {
         this.scheduler = scheduler;
         this.repositories = repositories;
         this.entityManager = entityManager;
         this.search = search;
-        this.restTemplate = restTemplate;
     }
 
     @EventListener
     public void applicationStarted(ApplicationStartedEvent event) {
         var jobRequest = new HandlerJobRequest<>(ExtensionControlJobRequestHandler.class);
+        if(updateOnStart) {
+            scheduler.enqueue(jobRequest);
+        }
+
         scheduler.scheduleRecurrently("UpdateExtensionControl", Cron.daily(1, 8), ZoneId.of("UTC"), jobRequest);
     }
 
@@ -97,13 +102,13 @@ public class ExtensionControlService {
         }
     }
 
-    public JsonNode getExtensionControlJson() {
-        var url = "https://github.com/open-vsx/publish-extensions/raw/master/extension-control/extensions.json";
-        return restTemplate.getForObject(url, JsonNode.class);
+    public JsonNode getExtensionControlJson() throws IOException {
+        var url = new URL("https://github.com/open-vsx/publish-extensions/raw/master/extension-control/extensions.json");
+        return new ObjectMapper().readValue(url, JsonNode.class);
     }
 
     @Cacheable(CACHE_MALICIOUS_EXTENSIONS)
-    public List<String> getMaliciousExtensionIds() {
+    public List<String> getMaliciousExtensionIds() throws IOException {
         var json = getExtensionControlJson();
         var malicious = json.get("malicious");
         if(!malicious.isArray()) {

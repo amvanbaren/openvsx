@@ -57,6 +57,7 @@ public class Extension implements Serializable {
 
     boolean deprecated;
 
+    @OneToOne
     Extension replacement;
 
     boolean downloadable;
