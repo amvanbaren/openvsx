@@ -13,11 +13,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.openvsx.admin.AdminService;
 import org.eclipse.openvsx.migration.HandlerJobRequest;
+import org.eclipse.openvsx.repositories.RepositoryService;
 import org.jobrunr.jobs.lambdas.JobRequestHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 
 @Component
 public class ExtensionControlJobRequestHandler implements JobRequestHandler<HandlerJobRequest<?>>  {
@@ -26,10 +26,12 @@ public class ExtensionControlJobRequestHandler implements JobRequestHandler<Hand
 
     private final AdminService admin;
     private final ExtensionControlService service;
+    private final RepositoryService repositories;
 
-    public ExtensionControlJobRequestHandler(AdminService admin, ExtensionControlService service) {
+    public ExtensionControlJobRequestHandler(AdminService admin, ExtensionControlService service, RepositoryService repositories) {
         this.admin = admin;
         this.service = service;
+        this.repositories = repositories;
     }
 
     @Override
@@ -49,7 +51,7 @@ public class ExtensionControlJobRequestHandler implements JobRequestHandler<Hand
         var adminUser = service.createExtensionControlUser();
         for(var item : node) {
             var extensionId = parseExtensionId(item.asText());
-            if(extensionId != null) {
+            if(extensionId != null && repositories.hasExtension(extensionId.namespace(), extensionId.extension())) {
                 admin.deleteExtension(extensionId.namespace(), extensionId.extension(), adminUser);
             }
         }

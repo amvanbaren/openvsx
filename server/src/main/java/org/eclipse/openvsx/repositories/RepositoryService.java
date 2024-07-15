@@ -621,4 +621,8 @@ public class RepositoryService {
     public ExtensionVersion findLatestReplacement(long extensionId, String targetPlatform, boolean onlyPreRelease, boolean onlyActive) {
         return extensionVersionJooqRepo.findLatestReplacement(extensionId, targetPlatform, onlyPreRelease, onlyActive);
     }
+
+    public boolean hasExtension(String namespace, String extension) {
+        return extensionJooqRepo.hasExtension(namespace, extension);
+    }
 }

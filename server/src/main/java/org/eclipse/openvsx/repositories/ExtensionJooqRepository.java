@@ -226,4 +226,14 @@ public class ExtensionJooqRepository {
                     );
                 });
     }
+
+    public boolean hasExtension(String namespace, String extension) {
+        return dsl.fetchExists(
+                dsl.selectOne()
+                        .from(NAMESPACE)
+                        .join(EXTENSION).on(EXTENSION.NAMESPACE_ID.eq(NAMESPACE.ID))
+                        .where(NAMESPACE.NAME.equalIgnoreCase(namespace))
+                        .and(EXTENSION.NAME.equalIgnoreCase(extension))
+        );
+    }
 }
