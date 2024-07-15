@@ -625,4 +625,8 @@ public class RepositoryService {
     public boolean hasExtension(String namespace, String extension) {
         return extensionJooqRepo.hasExtension(namespace, extension);
     }
+
+    public void setExtensionReplacementNull(Extension extension) {
+        extensionRepo.setExtensionReplacementNull(extension);
+    }
 }

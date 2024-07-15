@@ -12,6 +12,7 @@ package org.eclipse.openvsx.repositories;
 import org.eclipse.openvsx.entities.Extension;
 import org.eclipse.openvsx.entities.Namespace;
 import org.eclipse.openvsx.entities.UserData;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.util.Streamable;
@@ -48,4 +49,8 @@ public interface ExtensionRepository extends Repository<Extension, Long> {
 
     @Query("select e from Extension e where concat(e.namespace.name, '.', e.name) not in(?1)")
     Streamable<Extension> findAllNotMatchingByExtensionId(List<String> extensionIds);
+
+    @Modifying
+    @Query("update Extension e set e.replacement = null where e.replacement = ?1")
+    void setExtensionReplacementNull(Extension extension);
 }

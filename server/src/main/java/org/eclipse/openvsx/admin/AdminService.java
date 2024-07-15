@@ -132,6 +132,7 @@ public class AdminService {
             entityManager.remove(review);
         }
 
+        repositories.setExtensionReplacementNull(extension);
         entityManager.remove(extension);
         search.removeSearchEntry(extension);
 

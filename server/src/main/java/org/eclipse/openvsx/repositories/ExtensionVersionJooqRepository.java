@@ -336,12 +336,19 @@ public class ExtensionVersionJooqRepository {
         }
 
         totalQuery.addConditions(conditions);
+        query.addSelect(EXTENSION.DEPRECATED, EXTENSION.DOWNLOADABLE);
         query.addConditions(conditions);
         query.addOffset(request.offset);
         query.addLimit(request.size);
 
+        var content = query.fetch().map(record -> {
+            var extVersion = toExtensionVersionFull(record);
+            extVersion.getExtension().setDeprecated(record.get(EXTENSION.DEPRECATED));
+            extVersion.getExtension().setDownloadable(record.get(EXTENSION.DOWNLOADABLE));
+            return extVersion;
+        });
         var total = totalQuery.fetchOne(totalCol, Integer.class);
-        return new PageImpl<>(fetch(query), PageRequest.of(request.offset / request.size, request.size), total);
+        return new PageImpl<>(content, PageRequest.of(request.offset / request.size, request.size), total);
     }
 
     public List<ExtensionVersion> findAllActiveByVersionAndExtensionNameAndNamespaceName(String version, String extensionName, String namespaceName) {
@@ -822,6 +829,7 @@ public class ExtensionVersionJooqRepository {
                 EXTENSION.LAST_UPDATED_DATE,
                 EXTENSION.ACTIVE,
                 EXTENSION.DEPRECATED,
+                EXTENSION.DOWNLOADABLE,
                 latest.field(EXTENSION_VERSION.ID),
                 latest.field(EXTENSION_VERSION.POTENTIALLY_MALICIOUS),
                 latest.field(EXTENSION_VERSION.VERSION),
@@ -868,6 +876,7 @@ public class ExtensionVersionJooqRepository {
             extVersion.getExtension().getNamespace().setDisplayName(record.get(NAMESPACE.DISPLAY_NAME));
             extVersion.getExtension().setActive(record.get(EXTENSION.ACTIVE));
             extVersion.getExtension().setDeprecated(record.get(EXTENSION.DEPRECATED));
+            extVersion.getExtension().setDownloadable(record.get(EXTENSION.DOWNLOADABLE));
             return extVersion;
         });
     }
