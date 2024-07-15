@@ -812,7 +812,6 @@ public class LocalRegistryService implements IExtensionRegistry {
             var latestPreRelease = repositories.findLatestVersionForAllUrls(extension, targetPlatform, true, onlyActive);
 
             var json = extVersion.toExtensionJson();
-            json.downloadable = extension.isDownloadable();
             if(extension.getReplacement() != null) {
                 var replacementId = extension.getReplacement().getId();
                 var replacement = repositories.findLatestReplacement(replacementId, targetPlatform, false, onlyActive);

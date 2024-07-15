@@ -195,6 +195,7 @@ public class AdminAPI {
                 json.allVersions = Collections.emptyMap();
                 json.allTargetPlatformVersions = Collections.emptyList();
                 json.deprecated = extension.isDeprecated();
+                json.downloadable = extension.isDownloadable();
             } else {
                 json = local.toExtensionVersionJson(latest, null, false);
                 json.allTargetPlatformVersions = repositories.findTargetPlatformsGroupedByVersion(extension);

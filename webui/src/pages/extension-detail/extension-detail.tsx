@@ -324,14 +324,16 @@ export const ExtensionDetail: FunctionComponent = () => {
                     { extension.displayName ?? extension.name}
                 </Typography>
             </Badge>
-            <Stack direction='row' alignItems='center'>
-                <WarningIcon fontSize='small' />
-                <Typography>
-                    This extension has been deprecated.{extension.replacement && <>&nbsp;Use <StyledLink sx={{ color: themeColor }} href={extension.replacement.url}>
-                        {extension.replacement.displayName}
-                    </StyledLink> instead.</>}
-                </Typography>
-            </Stack>
+            { extension.deprecated &&
+                <Stack direction='row' alignItems='center'>
+                    <WarningIcon fontSize='small' />
+                    <Typography>
+                        This extension has been deprecated.{extension.replacement && <>&nbsp;Use <StyledLink sx={{ color: themeColor }} href={extension.replacement.url}>
+                            {extension.replacement.displayName}
+                        </StyledLink> instead.</>}
+                    </Typography>
+                </Stack>
+            }
             <Box
                 sx={{
                     ...alignVertically,

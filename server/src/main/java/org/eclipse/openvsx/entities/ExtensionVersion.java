@@ -184,6 +184,7 @@ public class ExtensionVersion implements Serializable {
         }
 
         json.deprecated = extension.isDeprecated();
+        json.downloadable = extension.isDownloadable();
         return json;
     }
 
