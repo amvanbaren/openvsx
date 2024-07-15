@@ -617,4 +617,8 @@ public class RepositoryService {
     public void deactivateKeyPairs() {
         signatureKeyPairRepo.updateActiveSetFalse();
     }
+
+    public ExtensionVersion findLatestReplacement(long extensionId, String targetPlatform, boolean onlyPreRelease, boolean onlyActive) {
+        return extensionVersionJooqRepo.findLatestReplacement(extensionId, targetPlatform, onlyPreRelease, onlyActive);
+    }
 }

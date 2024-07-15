@@ -93,6 +93,9 @@ public class LocalRegistryService implements IExtensionRegistry {
         this.observations = observations;
     }
 
+    @Value("${ovsx.webui.url:}")
+    String webuiUrl;
+
     @Value("${ovsx.registry.version:}")
     String registryVersion;
 
@@ -809,6 +812,19 @@ public class LocalRegistryService implements IExtensionRegistry {
             var latestPreRelease = repositories.findLatestVersionForAllUrls(extension, targetPlatform, true, onlyActive);
 
             var json = extVersion.toExtensionJson();
+            json.downloadable = extension.isDownloadable();
+            if(extension.getReplacement() != null) {
+                var replacementId = extension.getReplacement().getId();
+                var replacement = repositories.findLatestReplacement(replacementId, targetPlatform, false, onlyActive);
+                if(replacement != null && replacement.getExtension().isActive()) {
+                    json.replacement = new ExtensionReplacementJson();
+                    json.replacement.url = UrlUtil.createApiUrl(webuiUrl, "extension", replacement.getExtension().getNamespace().getName(), replacement.getExtension().getName());
+                    json.replacement.displayName = StringUtils.isNotEmpty(replacement.getDisplayName())
+                            ? replacement.getDisplayName()
+                            : replacement.getExtension().getName();
+                }
+            }
+
             json.preview = latest != null && latest.isPreview();
             json.versionAlias = new ArrayList<>(2);
             if (latest != null && extVersion.getVersion().equals(latest.getVersion()))
