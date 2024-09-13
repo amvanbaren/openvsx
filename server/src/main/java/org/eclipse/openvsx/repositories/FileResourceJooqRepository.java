@@ -60,12 +60,11 @@ public class FileResourceJooqRepository {
 
     public List<FileResource> findAllResources(long extVersionId, String prefix) {
         return dsl.select(
-                    FILE_RESOURCE.ID,
-                    FILE_RESOURCE.EXTENSION_ID,
-                    FILE_RESOURCE.NAME,
-                    FILE_RESOURCE.TYPE,
-                    FILE_RESOURCE.STORAGE_TYPE,
-                    FILE_RESOURCE.CONTENT
+                        FILE_RESOURCE.ID,
+                        FILE_RESOURCE.EXTENSION_ID,
+                        FILE_RESOURCE.NAME,
+                        FILE_RESOURCE.TYPE,
+                        FILE_RESOURCE.STORAGE_TYPE
                 )
                 .from(FILE_RESOURCE)
                 .where(FILE_RESOURCE.TYPE.eq(FileResource.RESOURCE))
@@ -75,8 +74,6 @@ public class FileResourceJooqRepository {
                 .map(record -> {
                     var fileResource = toFileResource(record);
                     fileResource.setStorageType(record.get(FILE_RESOURCE.STORAGE_TYPE));
-                    fileResource.setContent(record.get(FILE_RESOURCE.CONTENT));
-
                     return fileResource;
                 });
     }

@@ -118,12 +118,13 @@ public class Namespace implements Serializable {
 		this.logoName = logoName;
 	}
 
+	@Deprecated
 	public byte[] getLogoBytes() {
 		return logoBytes;
 	}
 
-	public void setLogoBytes(byte[] logoBytes) {
-		this.logoBytes = logoBytes;
+	public void clearLogoBytes() {
+		this.logoBytes = null;
 	}
 
 	public String getLogoStorageType() {
@@ -205,7 +206,6 @@ public class Namespace implements Serializable {
 				&& Objects.equals(website, namespace.website)
 				&& Objects.equals(supportLink, namespace.supportLink)
 				&& Objects.equals(logoName, namespace.logoName)
-				&& Arrays.equals(logoBytes, namespace.logoBytes)
 				&& Objects.equals(logoStorageType, namespace.logoStorageType)
 				&& Objects.equals(socialLinks, namespace.socialLinks)
 				&& Objects.equals(extensions, namespace.extensions)
@@ -216,7 +216,6 @@ public class Namespace implements Serializable {
 	public int hashCode() {
 		int result = Objects.hash(id, publicId, name, displayName, description, website, supportLink, logoName,
 				logoStorageType, socialLinks, extensions, memberships);
-		result = 31 * result + Arrays.hashCode(logoBytes);
 		return result;
 	}
 }

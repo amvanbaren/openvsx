@@ -10,8 +10,6 @@
 package org.eclipse.openvsx;
 
 import com.google.common.collect.Iterables;
-import io.micrometer.observation.Observation;
-import io.micrometer.observation.ObservationRegistry;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
@@ -34,6 +32,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.InputStream;
 import java.net.URI;
@@ -54,18 +53,15 @@ public class RegistryAPI {
     private final LocalRegistryService local;
     private final UpstreamRegistryService upstream;
     private final UserService users;
-    private final ObservationRegistry observations;
 
     public RegistryAPI(
             LocalRegistryService local,
             UpstreamRegistryService upstream,
-            UserService users,
-            ObservationRegistry observations
+            UserService users
     ) {
         this.local = local;
         this.upstream = upstream;
         this.users = users;
-        this.observations = observations;
     }
 
     protected Iterable<IExtensionRegistry> getRegistries() {
@@ -221,7 +217,7 @@ public class RegistryAPI {
             description = "The specified namespace could not be found"
         )
     })
-    public ResponseEntity<byte[]> getNamespaceLogo(
+    public ResponseEntity<StreamingResponseBody> getNamespaceLogo(
             @PathVariable @Parameter(description = "Namespace name", example = "redhat")
             String namespace,
             @PathVariable @Parameter(description = "Logo file name", example = "logo-redhat.png")
@@ -787,7 +783,7 @@ public class RegistryAPI {
             }
         )
     })
-    public ResponseEntity<byte[]> getFile(
+    public ResponseEntity<StreamingResponseBody> getFile(
             HttpServletRequest request,
             @PathVariable @Parameter(description = "Extension namespace", example = "redhat")
             String namespace,
@@ -848,7 +844,7 @@ public class RegistryAPI {
             }
         )
     })
-    public ResponseEntity<byte[]> getFile(
+    public ResponseEntity<StreamingResponseBody> getFile(
             HttpServletRequest request,
             @PathVariable @Parameter(description = "Extension namespace", example = "redhat")
             String namespace,
@@ -1543,19 +1539,17 @@ public class RegistryAPI {
             InputStream content,
             @RequestParam @Parameter(description = "A personal access token") String token
     ) {
-        return Observation.createNotStarted("RegistryAPI#publish", observations).observe(() -> {
-            try {
-                var json = local.publish(content, token);
-                var serverUrl = UrlUtil.getBaseUrl();
-                var url = UrlUtil.createApiVersionUrl(serverUrl, json);
-                return ResponseEntity.status(HttpStatus.CREATED)
-                        .location(URI.create(url))
-                        .body(json);
-            } catch (ErrorResultException exc) {
-                logger.warn("Failed to publish extension", exc);
-                return exc.toResponseEntity(ExtensionJson.class);
-            }
-        });
+        try {
+            var json = local.publish(content, token);
+            var serverUrl = UrlUtil.getBaseUrl();
+            var url = UrlUtil.createApiVersionUrl(serverUrl, json);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .location(URI.create(url))
+                    .body(json);
+        } catch (ErrorResultException exc) {
+            logger.warn("Failed to publish extension", exc);
+            return exc.toResponseEntity(ExtensionJson.class);
+        }
     }
 
     @PostMapping(
@@ -1612,24 +1606,22 @@ public class RegistryAPI {
         )
     })
     public ResponseEntity<ExtensionJson> publish(InputStream content) {
-        return Observation.createNotStarted("RegistryAPI#publish", observations).observe(() -> {
-            try {
-                var user = users.findLoggedInUser();
-                if (user == null) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-                }
-
-                var json = local.publish(content, user);
-                var serverUrl = UrlUtil.getBaseUrl();
-                var url = UrlUtil.createApiUrl(serverUrl, "api", json.namespace, json.name, json.version);
-                return ResponseEntity.status(HttpStatus.CREATED)
-                        .location(URI.create(url))
-                        .body(json);
-            } catch (ErrorResultException exc) {
-                logger.warn("Failed to publish extension", exc);
-                return exc.toResponseEntity(ExtensionJson.class);
+        try {
+            var user = users.findLoggedInUser();
+            if (user == null) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN);
             }
-        });
+
+            var json = local.publish(content, user);
+            var serverUrl = UrlUtil.getBaseUrl();
+            var url = UrlUtil.createApiUrl(serverUrl, "api", json.namespace, json.name, json.version);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .location(URI.create(url))
+                    .body(json);
+        } catch (ErrorResultException exc) {
+            logger.warn("Failed to publish extension", exc);
+            return exc.toResponseEntity(ExtensionJson.class);
+        }
     }
 
     @PostMapping(

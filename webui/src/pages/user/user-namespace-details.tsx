@@ -112,6 +112,9 @@ export const UserNamespaceDetails: FunctionComponent<UserNamespaceDetailsProps> 
     }, [props.namespace]);
 
     const getNamespaceDetails = async (): Promise<void> => {
+        if(logoPreview) {
+            URL.revokeObjectURL(logoPreview);
+        }
         setLogoPreview(undefined);
         if (!props.namespace.name) {
             setCurrentDetails(undefined);
@@ -276,6 +279,9 @@ export const UserNamespaceDetails: FunctionComponent<UserNamespaceDetailsProps> 
 
     const handleFileDialogOpen = () => {
         setDropzoneFile(undefined);
+        if(logoPreview) {
+            URL.revokeObjectURL(logoPreview);
+        }
         setLogoPreview(undefined);
     };
 
@@ -298,16 +304,17 @@ export const UserNamespaceDetails: FunctionComponent<UserNamespaceDetailsProps> 
     const handleSaveLogo = () => {
         const canvasScaled = editor.current?.getImageScaledToCanvas();
         if (canvasScaled) {
-            const dataUrl = canvasScaled.toDataURL();
-            setLogoPreview(dataUrl);
+            canvasScaled.toBlob(async (blob) => {
+                if(blob) {
+                    if(logoPreview) {
+                        URL.revokeObjectURL(logoPreview);
+                    }
+                    setLogoPreview(URL.createObjectURL(blob));
+                    await context.service.setNamespaceLogo(abortController.current, props.namespace.name, blob, dropzoneFile!.name);
+                    await getNamespaceDetails();
+                }
+            })
             setEditing(false);
-            if (newDetails) {
-                const details = copy(newDetails);
-                details.logo = dropzoneFile!.name;
-                const prefix = 'data:image/png;base64,';
-                details.logoBytes = dataUrl.substring(prefix.length);
-                setNewDetails(details);
-            }
         }
     };
 
@@ -320,11 +327,13 @@ export const UserNamespaceDetails: FunctionComponent<UserNamespaceDetailsProps> 
     };
 
     const deleteLogo = () => {
+        if(logoPreview) {
+            URL.revokeObjectURL(logoPreview);
+        }
         setLogoPreview(undefined);
         if (newDetails) {
             const details = copy(newDetails);
             details.logo = undefined;
-            details.logoBytes = undefined;
             setNewDetails(details);
         }
     };

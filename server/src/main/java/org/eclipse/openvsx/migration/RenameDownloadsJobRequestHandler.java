@@ -43,15 +43,14 @@ public class RenameDownloadsJobRequestHandler  implements JobRequestHandler<Migr
         }
 
         logger.info("Renaming download {}", download.getName());
-        var content = migrations.getContent(download);
-        var entry = new AbstractMap.SimpleEntry<>(download, content);
-        try(var extensionFile = migrations.getExtensionFile(entry)) {
+        try(var extensionFile = migrations.getExtensionFile(download)) {
             if(Files.size(extensionFile.getPath()) == 0) {
                 return;
             }
 
             var newDownload = service.cloneResource(download, name);
-            migrations.uploadFileResource(newDownload, extensionFile);
+            extensionFile.setResource(newDownload);
+            migrations.uploadFileResource(extensionFile);
             migrations.removeFile(download);
 
             download.setName(name);

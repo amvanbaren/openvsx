@@ -9,7 +9,6 @@
  * ****************************************************************************** */
 package org.eclipse.openvsx.migration;
 
-import io.micrometer.observation.ObservationRegistry;
 import org.eclipse.openvsx.ExtensionProcessor;
 import org.eclipse.openvsx.util.NamingUtil;
 import org.jobrunr.jobs.annotations.Job;
@@ -39,29 +38,9 @@ public class ExtractResourcesJobRequestHandler implements JobRequestHandler<Migr
     @Override
     @Job(name = "Extract resources from published extension version", retries = 3)
     public void run(MigrationJobRequest jobRequest) throws Exception {
+        // resources and web resources are no longer stored, nothing to extract
         var extVersion = migrations.getExtension(jobRequest.getEntityId());
-        logger.info("Extracting resources for: {}", NamingUtil.toLogFormat(extVersion));
-
         service.deleteResources(extVersion);
-        var entry = migrations.getDownload(extVersion);
-        if(entry == null) {
-            return;
-        }
-
-        var download = entry.getKey();
-        try(var extensionFile = migrations.getExtensionFile(entry)) {
-            if(Files.size(extensionFile.getPath()) == 0) {
-                return;
-            }
-            try (var extProcessor = new ExtensionProcessor(extensionFile, ObservationRegistry.NOOP)) {
-                extProcessor.processEachResource(download.getExtension(), (resource) -> {
-                    resource.setStorageType(download.getStorageType());
-                    migrations.uploadFileResource(resource);
-                    migrations.persistFileResource(resource);
-                });
-            }
-        }
-
         service.deleteWebResources(extVersion);
     }
 }

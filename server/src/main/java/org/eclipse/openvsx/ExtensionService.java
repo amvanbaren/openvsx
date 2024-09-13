@@ -9,8 +9,6 @@
  ********************************************************************************/
 package org.eclipse.openvsx;
 
-import io.micrometer.observation.Observation;
-import io.micrometer.observation.ObservationRegistry;
 import jakarta.transaction.Transactional;
 import jakarta.transaction.Transactional.TxType;
 import org.apache.commons.lang3.StringUtils;
@@ -42,7 +40,6 @@ public class ExtensionService {
     private final SearchUtilService search;
     private final CacheService cache;
     private final PublishExtensionVersionHandler publishHandler;
-    private final ObservationRegistry observations;
 
     @Value("${ovsx.publishing.require-license:false}")
     boolean requireLicense;
@@ -51,72 +48,69 @@ public class ExtensionService {
             RepositoryService repositories,
             SearchUtilService search,
             CacheService cache,
-            PublishExtensionVersionHandler publishHandler,
-            ObservationRegistry observations
+            PublishExtensionVersionHandler publishHandler
     ) {
         this.repositories = repositories;
         this.search = search;
         this.cache = cache;
         this.publishHandler = publishHandler;
-        this.observations = observations;
     }
 
     @Transactional
     public ExtensionVersion mirrorVersion(TempFile extensionFile, String signatureName, PersonalAccessToken token, String binaryName, String timestamp) {
-        var download = doPublish(extensionFile, binaryName, token, TimeUtil.fromUTCString(timestamp), false);
-        publishHandler.mirror(download, extensionFile, signatureName);
-        return download.getExtension();
+        doPublish(extensionFile, binaryName, token, TimeUtil.fromUTCString(timestamp), false);
+        publishHandler.mirror(extensionFile, signatureName);
+        return extensionFile.getResource().getExtension();
     }
 
     public ExtensionVersion publishVersion(InputStream content, PersonalAccessToken token) throws ErrorResultException {
-        return Observation.createNotStarted("ExtensionService#publishVersion", observations).observe(() -> {
-            var extensionFile = createExtensionFile(content);
-            var download = doPublish(extensionFile, null, token, TimeUtil.getCurrentUTC(), true);
-            publishHandler.publishAsync(download, extensionFile, this);
-            publishHandler.schedulePublicIdJob(download);
-            return download.getExtension();
-        });
+        var extensionFile = createExtensionFile(content);
+        doPublish(extensionFile, null, token, TimeUtil.getCurrentUTC(), true);
+        publishHandler.publishAsync(extensionFile, this);
+        var download = extensionFile.getResource();
+        publishHandler.schedulePublicIdJob(download);
+        return download.getExtension();
     }
 
-    private FileResource doPublish(TempFile extensionFile, String binaryName, PersonalAccessToken token, LocalDateTime timestamp, boolean checkDependencies) {
-        return Observation.createNotStarted("ExtensionService#doPublish", observations).observe(() -> {
-            try (var processor = new ExtensionProcessor(extensionFile, observations)) {
-                var extVersion = publishHandler.createExtensionVersion(processor, token, timestamp, checkDependencies);
-                if (requireLicense) {
-                    // Check the extension's license
-                    var license = processor.getLicense(extVersion);
-                    Observation.createNotStarted("ExtensionService#checkLicense", observations).observe(() -> checkLicense(extVersion, license));
+    private void doPublish(TempFile extensionFile, String binaryName, PersonalAccessToken token, LocalDateTime timestamp, boolean checkDependencies) {
+        try (var processor = new ExtensionProcessor(extensionFile)) {
+            var extVersion = publishHandler.createExtensionVersion(processor, token, timestamp, checkDependencies);
+            if (requireLicense) {
+                // Check the extension's license
+                try(var licenseFile = processor.getLicense(extVersion)) {
+                    checkLicense(extVersion, licenseFile);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
-
-                return processor.getBinary(extVersion, binaryName);
             }
-        });
+
+            var download = processor.getBinary(extVersion, binaryName);
+            extensionFile.setResource(download);
+        }
     }
 
     private TempFile createExtensionFile(InputStream content) {
-        return Observation.createNotStarted("ExtensionService#createExtensionFile", observations).observe(() -> {
-            try (var input = new BufferedInputStream(content)) {
-                input.mark(0);
-                var skipped = input.skip(MAX_CONTENT_SIZE  + 1);
-                if (skipped > MAX_CONTENT_SIZE) {
-                    throw new ErrorResultException("The extension package exceeds the size limit of 512 MB.", HttpStatus.PAYLOAD_TOO_LARGE);
-                }
-
-                var extensionFile = new TempFile("extension_", ".vsix");
-                try(var out = Files.newOutputStream(extensionFile.getPath())) {
-                    input.reset();
-                    input.transferTo(out);
-                }
-
-                return extensionFile;
-            } catch (IOException e) {
-                throw new ErrorResultException("Failed to read extension file", e);
+        try (var input = new BufferedInputStream(content)) {
+            input.mark(0);
+            var skipped = input.skip(MAX_CONTENT_SIZE  + 1);
+            if (skipped > MAX_CONTENT_SIZE) {
+                throw new ErrorResultException("The extension package exceeds the size limit of 512 MB.", HttpStatus.PAYLOAD_TOO_LARGE);
             }
-        });
+
+            var extensionFile = new TempFile("extension_", ".vsix");
+            try(var out = Files.newOutputStream(extensionFile.getPath())) {
+                input.reset();
+                input.transferTo(out);
+            }
+
+            return extensionFile;
+        } catch (IOException e) {
+            throw new ErrorResultException("Failed to read extension file", e);
+        }
     }
 
-    private void checkLicense(ExtensionVersion extVersion, FileResource license) {
-        if (StringUtils.isEmpty(extVersion.getLicense()) && (license == null || !license.getType().equals(FileResource.LICENSE))) {
+    private void checkLicense(ExtensionVersion extVersion, TempFile licenseFile) {
+        if (StringUtils.isEmpty(extVersion.getLicense()) && (licenseFile == null || !licenseFile.getResource().getType().equals(FileResource.LICENSE))) {
             throw new ErrorResultException("This extension cannot be accepted because it has no license.");
         }
     }

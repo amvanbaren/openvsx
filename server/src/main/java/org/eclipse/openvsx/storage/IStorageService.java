@@ -28,12 +28,7 @@ public interface IStorageService {
     /**
      * Upload a file to the external storage.
      */
-    void uploadFile(FileResource resource);
-
-    /**
-     * Upload a file to the external storage.
-     */
-    void uploadFile(FileResource resource, TempFile file);
+    void uploadFile(TempFile tempFile);
 
     /**
      * Remove a file from the external storage.
@@ -48,7 +43,7 @@ public interface IStorageService {
     /**
      * Upload a namespace logo to the external storage.
      */
-    void uploadNamespaceLogo(Namespace namespace);
+    void uploadNamespaceLogo(TempFile logoFile);
 
     /**
      * Remove a namespace logo from the external storage.
@@ -59,6 +54,10 @@ public interface IStorageService {
      * Returns the public access location of a namespace logo.
      */
     URI getNamespaceLogoLocation(Namespace namespace);
+
+    TempFile downloadNamespaceLogo(Namespace namespace) throws IOException;
+
+    TempFile downloadFile(FileResource resource) throws IOException;
 
     void copyFiles(List<Pair<FileResource, FileResource>> pairs);
 }

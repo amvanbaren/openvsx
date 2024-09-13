@@ -9,8 +9,6 @@
  ********************************************************************************/
 package org.eclipse.openvsx.repositories;
 
-import io.micrometer.observation.Observation;
-import io.micrometer.observation.ObservationRegistry;
 import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.json.QueryRequest;
 import org.eclipse.openvsx.json.VersionTargetPlatformsJson;
@@ -40,7 +38,6 @@ public class RepositoryService {
             .and(Sort.by(Sort.Direction.ASC, "targetPlatform"))
             .and(Sort.by(Sort.Direction.DESC, "timestamp"));
 
-    private final ObservationRegistry observations;
     private final NamespaceRepository namespaceRepo;
     private final NamespaceJooqRepository namespaceJooqRepo;
     private final ExtensionRepository extensionRepo;
@@ -65,7 +62,6 @@ public class RepositoryService {
     private final SignatureKeyPairJooqRepository signatureKeyPairJooqRepo;
 
     public RepositoryService(
-            ObservationRegistry observations,
             NamespaceRepository namespaceRepo,
             NamespaceJooqRepository namespaceJooqRepo,
             ExtensionRepository extensionRepo,
@@ -89,7 +85,6 @@ public class RepositoryService {
             SignatureKeyPairRepository signatureKeyPairRepo,
             SignatureKeyPairJooqRepository signatureKeyPairJooqRepo
     ) {
-        this.observations = observations;
         this.namespaceRepo = namespaceRepo;
         this.namespaceJooqRepo = namespaceJooqRepo;
         this.extensionRepo = extensionRepo;
@@ -115,7 +110,7 @@ public class RepositoryService {
     }
 
     public Namespace findNamespace(String name) {
-        return Observation.createNotStarted("RepositoryService#findNamespace", observations).observe(() -> namespaceRepo.findByNameIgnoreCase(name));
+        return namespaceRepo.findByNameIgnoreCase(name);
     }
 
     public String findNamespaceName(String name) {
@@ -131,7 +126,7 @@ public class RepositoryService {
     }
 
     public Extension findExtension(String name, Namespace namespace) {
-        return Observation.createNotStarted("RepositoryService#findExtension", observations).observe(() -> extensionRepo.findByNameIgnoreCaseAndNamespace(name, namespace));
+        return extensionRepo.findByNameIgnoreCaseAndNamespace(name, namespace);
     }
 
     public Extension findExtension(String name, String namespace) {
@@ -147,9 +142,7 @@ public class RepositoryService {
     }
 
     public Streamable<Extension> findExtensions(Collection<Long> extensionIds) {
-//        return Observation.createNotStarted("RepositoryService#findExtensions", observations).observe(() -> {
-            return extensionRepo.findByIdIn(extensionIds);
-//        });
+        return extensionRepo.findByIdIn(extensionIds);
     }
 
     public Streamable<Extension> findExtensions(Namespace namespace) {
@@ -172,12 +165,16 @@ public class RepositoryService {
         return extensionRepo.count();
     }
 
+    public long countExtensions(String name, String namespace) {
+        return extensionRepo.countByNameIgnoreCaseAndNamespaceNameIgnoreCase(name, namespace);
+    }
+
     public int getMaxExtensionDownloadCount() {
         return extensionRepo.getMaxDownloadCount();
     }
 
     public ExtensionVersion findVersion(String version, String targetPlatform, Extension extension) {
-        return Observation.createNotStarted("RepositoryService#findVersion", observations).observe(() -> extensionVersionRepo.findByVersionAndTargetPlatformAndExtension(version, targetPlatform, extension));
+        return extensionVersionRepo.findByVersionAndTargetPlatformAndExtension(version, targetPlatform, extension);
     }
 
     public ExtensionVersion findVersion(String version, String targetPlatform, String extensionName, String namespace) {
@@ -189,7 +186,7 @@ public class RepositoryService {
     }
 
     public Streamable<ExtensionVersion> findVersions(String version, Extension extension) {
-        return Observation.createNotStarted("RepositoryService#findVersions", observations).observe(() -> extensionVersionRepo.findByVersionAndExtension(version, extension));
+        return extensionVersionRepo.findByVersionAndExtension(version, extension);
     }
 
     public Streamable<ExtensionVersion> findActiveVersions(Extension extension) {
@@ -209,7 +206,7 @@ public class RepositoryService {
     }
 
     public List<String> findVersionStringsSorted(Extension extension, String targetPlatform, boolean onlyActive) {
-        return Observation.createNotStarted("RepositoryService#findVersionStringsSorted", observations).observe(() -> extensionVersionJooqRepo.findVersionStringsSorted(extension.getId(), targetPlatform, onlyActive, MAX_VERSIONS));
+        return extensionVersionJooqRepo.findVersionStringsSorted(extension.getId(), targetPlatform, onlyActive, MAX_VERSIONS);
     }
 
     public Map<Long, List<String>> findActiveVersionStringsSorted(Collection<Long> extensionIds, String targetPlatform) {
@@ -245,7 +242,7 @@ public class RepositoryService {
     }
 
     public Streamable<FileResource> findFiles(ExtensionVersion extVersion) {
-        return fileResourceRepo.findByExtensionAndStorageTypeNot(extVersion, STORAGE_DB);
+        return fileResourceRepo.findByExtensionAndStorageTypeNot(extVersion, STORAGE_LOCAL);
     }
 
     public void deleteFiles(ExtensionVersion extVersion) {
@@ -265,9 +262,7 @@ public class RepositoryService {
     }
 
     public Streamable<FileResource> findDownloadsByStorageTypeAndName(String storageType, Collection<String> names) {
-//        return Observation.createNotStarted("RepositoryService#findDownloadsByStorageTypeAndName", observations).observe(() -> {
-            return fileResourceRepo.findByTypeAndStorageTypeAndNameIgnoreCaseIn(DOWNLOAD, storageType, names);
-//        });
+        return fileResourceRepo.findByTypeAndStorageTypeAndNameIgnoreCaseIn(DOWNLOAD, storageType, names);
     }
 
     public Streamable<FileResource> findFilesByType(String type) {
@@ -291,7 +286,7 @@ public class RepositoryService {
     }
 
     public List<FileResource> findFilesByType(Collection<ExtensionVersion> extVersions, Collection<String> types) {
-        return Observation.createNotStarted("RepositoryService#findFilesByType", observations).observe(() -> fileResourceJooqRepo.findByType(extVersions, types));
+        return fileResourceJooqRepo.findByType(extVersions, types);
     }
 
     public Streamable<ExtensionReview> findActiveReviews(Extension extension) {
@@ -323,7 +318,7 @@ public class RepositoryService {
     }
 
     public NamespaceMembership findMembership(UserData user, Namespace namespace) {
-        return Observation.createNotStarted("RepositoryService#findMembership", observations).observe(() -> membershipRepo.findByUserAndNamespace(user, namespace));
+        return membershipRepo.findByUserAndNamespace(user, namespace);
     }
 
     public boolean hasMembership(UserData user, Namespace namespace) {
@@ -331,7 +326,7 @@ public class RepositoryService {
     }
 
     public boolean isVerified(Namespace namespace, UserData user) {
-        return Observation.createNotStarted("RepositoryService#isVerified", observations).observe(() -> membershipJooqRepo.isVerified(namespace, user));
+        return membershipJooqRepo.isVerified(namespace, user);
     }
 
     public Streamable<NamespaceMembership> findMemberships(Namespace namespace, String role) {
@@ -371,7 +366,7 @@ public class RepositoryService {
     }
 
     public PersonalAccessToken findAccessToken(String value) {
-        return Observation.createNotStarted("RepositoryService#findAccessToken", observations).observe(() -> tokenRepo.findByValue(value));
+        return tokenRepo.findByValue(value);
     }
 
     public boolean isAdminToken(String value) {
@@ -391,9 +386,7 @@ public class RepositoryService {
     }
 
     public List<String> findAllSucceededAzureDownloadCountProcessedItemsByNameIn(List<String> names) {
-//        return Observation.createNotStarted("RepositoryService#findAllSucceededAzureDownloadCountProcessedItemsByNameIn", observations).observe(() -> {
-            return downloadCountRepo.findAllSucceededAzureDownloadCountProcessedItemsByNameIn(names);
-//        });
+        return downloadCountRepo.findAllSucceededAzureDownloadCountProcessedItemsByNameIn(names);
     }
 
     public List<Extension> findActiveExtensionsByPublicId(Collection<String> publicIds, String... namespacesToExclude) {
@@ -520,6 +513,14 @@ public class RepositoryService {
         return findNotMigratedItems("V1_46__ExtensionVersion_PotentiallyMalicious.sql");
     }
 
+    public Iterable<MigrationItem> findNotMigratedLocalNamespaceLogos() {
+        return findNotMigratedItems("V1_48__Local_Storage_Namespace.sql");
+    }
+
+    public Iterable<MigrationItem> findNotMigratedLocalFileResourceContent() {
+        return findNotMigratedItems("V1_48__Local_Storage_FileResource.sql");
+    }
+
     private Streamable<MigrationItem> findNotMigratedItems(String migrationScript) {
         return migrationItemRepo.findByMigrationScriptAndMigrationScheduledFalseOrderById(migrationScript);
     }
@@ -537,7 +538,7 @@ public class RepositoryService {
     }
 
     public SignatureKeyPair findActiveKeyPair() {
-        return Observation.createNotStarted("RepositoryService#findActiveKeyPair", observations).observe(() -> signatureKeyPairRepo.findByActiveTrue());
+        return signatureKeyPairRepo.findByActiveTrue();
     }
 
     public Streamable<ExtensionVersion> findVersions() {
@@ -614,9 +615,7 @@ public class RepositoryService {
     }
 
     public ExtensionVersion findLatestVersionForAllUrls(Extension extension, String targetPlatform, boolean onlyPreRelease, boolean onlyActive) {
-        return Observation.createNotStarted("RepositoryService#findLatestVersionForAllUrls", observations).observe(() -> {
-            return extensionVersionJooqRepo.findLatestForAllUrls(extension, targetPlatform, onlyPreRelease, onlyActive);
-        });
+        return extensionVersionJooqRepo.findLatestForAllUrls(extension, targetPlatform, onlyPreRelease, onlyActive);
     }
 
     public ExtensionVersion findLatestVersion(Extension extension, String targetPlatform, boolean onlyPreRelease, boolean onlyActive) {

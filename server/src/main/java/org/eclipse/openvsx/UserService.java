@@ -10,27 +10,32 @@
 package org.eclipse.openvsx;
 
 import com.google.common.base.Joiner;
-import io.micrometer.observation.Observation;
-import io.micrometer.observation.ObservationRegistry;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import org.apache.tika.Tika;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MimeTypeException;
+import org.apache.tika.mime.MimeTypes;
 import org.eclipse.openvsx.cache.CacheService;
-import org.eclipse.openvsx.entities.*;
+import org.eclipse.openvsx.entities.Namespace;
+import org.eclipse.openvsx.entities.NamespaceMembership;
+import org.eclipse.openvsx.entities.PersonalAccessToken;
+import org.eclipse.openvsx.entities.UserData;
 import org.eclipse.openvsx.json.AccessTokenJson;
 import org.eclipse.openvsx.json.NamespaceDetailsJson;
 import org.eclipse.openvsx.json.ResultJson;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.security.IdPrincipal;
 import org.eclipse.openvsx.storage.StorageUtilService;
-import org.eclipse.openvsx.util.ErrorResultException;
-import org.eclipse.openvsx.util.NotFoundException;
-import org.eclipse.openvsx.util.TimeUtil;
-import org.eclipse.openvsx.util.UrlUtil;
+import org.eclipse.openvsx.util.*;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -45,35 +50,30 @@ public class UserService {
     private final StorageUtilService storageUtil;
     private final CacheService cache;
     private final ExtensionValidator validator;
-    private final ObservationRegistry observations;
 
     public UserService(
             EntityManager entityManager,
             RepositoryService repositories,
             StorageUtilService storageUtil,
             CacheService cache,
-            ExtensionValidator validator,
-            ObservationRegistry observations
+            ExtensionValidator validator
     ) {
         this.entityManager = entityManager;
         this.repositories = repositories;
         this.storageUtil = storageUtil;
         this.cache = cache;
         this.validator = validator;
-        this.observations = observations;
     }
 
     public UserData findLoggedInUser() {
-        return Observation.createNotStarted("UserService#findLoggedInUser", observations).observe(() -> {
-            var authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null) {
-                if (authentication.getPrincipal() instanceof IdPrincipal) {
-                    var principal = (IdPrincipal) authentication.getPrincipal();
-                    return entityManager.find(UserData.class, principal.getId());
-                }
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null) {
+            if (authentication.getPrincipal() instanceof IdPrincipal) {
+                var principal = (IdPrincipal) authentication.getPrincipal();
+                return entityManager.find(UserData.class, principal.getId());
             }
-            return null;
-        });
+        }
+        return null;
     }
 
     @Transactional
@@ -128,14 +128,12 @@ public class UserService {
 
     @Transactional
     public PersonalAccessToken useAccessToken(String tokenValue) {
-        return Observation.createNotStarted("UserService#useAccessToken", observations).observe(() -> {
-            var token = repositories.findAccessToken(tokenValue);
-            if (token == null || !token.isActive()) {
-                return null;
-            }
-            token.setAccessedTimestamp(TimeUtil.getCurrentUTC());
-            return token;
-        });
+        var token = repositories.findAccessToken(tokenValue);
+        if (token == null || !token.isActive()) {
+            return null;
+        }
+        token.setAccessedTimestamp(TimeUtil.getCurrentUTC());
+        return token;
     }
 
     public String generateTokenValue() {
@@ -147,15 +145,12 @@ public class UserService {
     }
 
     public boolean hasPublishPermission(UserData user, Namespace namespace) {
-        return Observation.createNotStarted("UserService#hasPublishPermission", observations).observe(() -> {
+        if (UserData.ROLE_PRIVILEGED.equals(user.getRole())) {
+            // Privileged users can publish to every namespace.
+            return true;
+        }
 
-            if (UserData.ROLE_PRIVILEGED.equals(user.getRole())) {
-                // Privileged users can publish to every namespace.
-                return true;
-            }
-
-            return repositories.canPublishInNamespace(user, namespace);
-        });
+        return repositories.canPublishInNamespace(user, namespace);
     }
 
     @Transactional(rollbackOn = ErrorResultException.class)
@@ -241,56 +236,57 @@ public class UserService {
             namespace.setSocialLinks(details.socialLinks);
         }
 
-        var logo = namespace.getLogoStorageType() != null
-                ? storageUtil.getNamespaceLogoLocation(namespace).toString()
-                : null;
-
-        if(!Objects.equals(details.logo, logo)) {
-            if (details.logoBytes != null && details.logoBytes.length > 0) {
-                if (namespace.getLogoStorageType() != null) {
-                    storageUtil.removeNamespaceLogo(namespace);
-                }
-
-                namespace.setLogoName(details.logo);
-                namespace.setLogoBytes(details.logoBytes);
-                storeNamespaceLogo(namespace);
-            } else if (namespace.getLogoStorageType() != null) {
-                storageUtil.removeNamespaceLogo(namespace);
-                namespace.setLogoName(null);
-                namespace.setLogoBytes(null);
-                namespace.setLogoStorageType(null);
-            }
-        }
-
         return ResultJson.success("Updated details for namespace " + details.name);
     }
 
-    private void storeNamespaceLogo(Namespace namespace) {
-        if (storageUtil.shouldStoreLogoExternally(namespace)) {
-            storageUtil.uploadNamespaceLogo(namespace);
-            // Don't store the binary content in the DB - it's now stored externally
-            namespace.setLogoBytes(null);
-        } else {
-            namespace.setLogoStorageType(FileResource.STORAGE_DB);
+    @Transactional
+    public ResultJson updateNamespaceDetailsLogo(String namespaceName, MultipartFile file) {
+        var namespace = repositories.findNamespace(namespaceName);
+        if (namespace == null) {
+            throw new NotFoundException();
         }
+
+        try (
+                var logoFile = new TempFile("namespace-logo", ".png");
+                var out = Files.newOutputStream(logoFile.getPath())
+        ) {
+            var tika = new Tika();
+            var detectedType = tika.detect(file.getInputStream(), file.getOriginalFilename());
+            var logoType = MimeTypes.getDefaultMimeTypes().getRegisteredMimeType(detectedType);
+            if(logoType != null) {
+                if(!logoType.getType().equals(MediaType.image("png")) && !logoType.getType().equals(MediaType.image("jpg"))) {
+                    throw new ErrorResultException("Namespace logo should be of png or jpg type");
+                }
+
+                var logoName = "logo-" + namespace.getName() + "-" + System.currentTimeMillis() + logoType.getExtension();
+                namespace.setLogoName(logoName);
+            }
+
+            file.getInputStream().transferTo(out);
+            logoFile.setNamespace(namespace);
+            storageUtil.uploadNamespaceLogo(logoFile);
+        } catch (IOException | MimeTypeException e) {
+            throw new RuntimeException(e);
+        }
+
+        return ResultJson.success("Updated logo for namespace " + namespace.getName());
     }
+
     @Transactional
     public AccessTokenJson createAccessToken(UserData user, String description) {
-        return Observation.createNotStarted("UserService#createAccessToken", observations).observe(() -> {
-            var token = new PersonalAccessToken();
-            token.setUser(user);
-            token.setValue(generateTokenValue());
-            token.setActive(true);
-            token.setCreatedTimestamp(TimeUtil.getCurrentUTC());
-            token.setDescription(description);
-            entityManager.persist(token);
-            var json = token.toAccessTokenJson();
-            // Include the token value after creation so the user can copy it
-            json.value = token.getValue();
-            json.deleteTokenUrl = createApiUrl(UrlUtil.getBaseUrl(), "user", "token", "delete", Long.toString(token.getId()));
+        var token = new PersonalAccessToken();
+        token.setUser(user);
+        token.setValue(generateTokenValue());
+        token.setActive(true);
+        token.setCreatedTimestamp(TimeUtil.getCurrentUTC());
+        token.setDescription(description);
+        entityManager.persist(token);
+        var json = token.toAccessTokenJson();
+        // Include the token value after creation so the user can copy it
+        json.value = token.getValue();
+        json.deleteTokenUrl = createApiUrl(UrlUtil.getBaseUrl(), "user", "token", "delete", Long.toString(token.getId()));
 
-            return json;
-        });
+        return json;
     }
 
     @Transactional
