@@ -50,6 +50,11 @@ public class AdminStatisticsJson extends ResultJson {
 
     public List<TopMostDownloadedExtensions> topMostDownloadedExtensions;
 
+    public Integer fileCount;
+    public Integer fileTypeResourceCount;
+    public Integer fileNodeModuleCount;
+    public Integer fileTypeResourceNodeModuleCount;
+
     public static class ExtensionsByRating {
         public int rating;
 

@@ -10,6 +10,7 @@
 package org.eclipse.openvsx.admin;
 
 import org.eclipse.openvsx.entities.AdminStatistics;
+import org.eclipse.openvsx.entities.FileResource;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.jobrunr.jobs.lambdas.JobRequestHandler;
 import org.slf4j.Logger;
@@ -100,6 +101,26 @@ public class AdminStatisticsJobRequestHandler implements JobRequestHandler<Admin
         var topMostDownloadedExtensions = repositories.topMostDownloadedExtensions(limit);
         stopwatch.stop();
         LOGGER.info("{} took {} ms", stopwatch.getLastTaskName(), stopwatch.getLastTaskTimeMillis());
+
+        stopwatch.start("repositories.countFileResources");
+        var fileCount = repositories.countFileResources();
+        stopwatch.stop();
+        LOGGER.info("{} took {} ms", stopwatch.getLastTaskName(), stopwatch.getLastTaskTimeMillis());
+
+        stopwatch.start("repositories.countFileResources RESOURCE");
+        var fileTypeResourceCount = repositories.countFileResources(FileResource.RESOURCE);
+        stopwatch.stop();
+        LOGGER.info("{} took {} ms", stopwatch.getLastTaskName(), stopwatch.getLastTaskTimeMillis());
+
+        stopwatch.start("repositories.countFileResourceNodeModules");
+        var fileNodeModuleCount = repositories.countFileResourceNodeModules();
+        stopwatch.stop();
+        LOGGER.info("{} took {} ms", stopwatch.getLastTaskName(), stopwatch.getLastTaskTimeMillis());
+
+        stopwatch.start("repositories.countFileResourceNodeModules RESOURCE");
+        var fileTypeResourceNodeModuleCount = repositories.countFileResourceNodeModules(FileResource.RESOURCE);
+        stopwatch.stop();
+        LOGGER.info("{} took {} ms", stopwatch.getLastTaskName(), stopwatch.getLastTaskTimeMillis());
         LOGGER.info("<< ADMIN REPORT STATS {} {}", year, month);
 
         var statistics = new AdminStatistics();
@@ -117,6 +138,11 @@ public class AdminStatisticsJobRequestHandler implements JobRequestHandler<Admin
         statistics.setTopNamespaceExtensions(topNamespaceExtensions);
         statistics.setTopNamespaceExtensionVersions(topNamespaceExtensionVersions);
         statistics.setTopMostDownloadedExtensions(topMostDownloadedExtensions);
+        statistics.setFileCount(fileCount);
+        statistics.setFileTypeResourceCount(fileTypeResourceCount);
+        statistics.setFileNodeModuleCount(fileNodeModuleCount);
+        statistics.setFileTypeResourceNodeModuleCount(fileTypeResourceNodeModuleCount);
+
         service.saveAdminStatistics(statistics);
     }
 }

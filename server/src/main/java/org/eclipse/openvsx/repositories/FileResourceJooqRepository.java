@@ -18,6 +18,7 @@ import org.eclipse.openvsx.util.VersionAlias;
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.SelectQuery;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -206,5 +207,34 @@ public class FileResourceJooqRepository {
         resource.setStorageType(record.get(FILE_RESOURCE.STORAGE_TYPE));
         resource.setExtension(extVersion);
         return resource;
+    }
+
+    public Integer countFileResourceNodeModules(String[] types) {
+        var count = DSL.count().as("count");
+        var query = dsl.selectQuery();
+        query.addSelect(count);
+        query.addFrom(FILE_RESOURCE);
+        query.addConditions(FILE_RESOURCE.NAME.like("%/node_modules/%"));
+        if(types.length > 1) {
+            query.addConditions(FILE_RESOURCE.TYPE.in(types));
+        } else if(types.length == 1) {
+            query.addConditions(FILE_RESOURCE.TYPE.eq(types[0]));
+        }
+
+        return query.fetchOne(count);
+    }
+
+    public Integer countFileResources(String[] types) {
+        var count = DSL.count().as("count");
+        var query = dsl.selectQuery();
+        query.addSelect(count);
+        query.addFrom(FILE_RESOURCE);
+        if(types.length > 1) {
+            query.addConditions(FILE_RESOURCE.TYPE.in(types));
+        } else if(types.length == 1) {
+            query.addConditions(FILE_RESOURCE.TYPE.eq(types[0]));
+        }
+
+        return query.fetchOne(count);
     }
 }

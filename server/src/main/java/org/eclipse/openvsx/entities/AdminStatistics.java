@@ -71,9 +71,16 @@ public class AdminStatistics {
     @Column(name = "downloads")
     Map<String, Long> topMostDownloadedExtensions;
 
+    Integer fileCount;
+    Integer fileTypeResourceCount;
+    Integer fileNodeModuleCount;
+    Integer fileTypeResourceNodeModuleCount;
+
     public String toCsv() {
         var ratings = 5;
-        var headers = new ArrayList<>(List.of("year", "month", "extensions", "downloads", "downloads_total", "publishers", "average_reviews_per_extension", "namespace_owners"));
+        var headers = new ArrayList<>(List.of("year", "month", "extensions", "downloads", "downloads_total", "publishers",
+                "average_reviews_per_extension", "namespace_owners", "file_count", "file_type_resource_count", "file_node_module_count",
+                "file_type_resource_node_module_count"));
         for(int i = 0; i < ratings; i++) {
             headers.add("extensions_by_rating_" + (i + 1));
         }
@@ -83,7 +90,9 @@ public class AdminStatistics {
             headers.add("publishers_published_extensions_" + amount);
         }
 
-        var values = new ArrayList<Number>(List.of(year, month, extensions, downloads, downloadsTotal, publishers, averageReviewsPerExtension, namespaceOwners));
+        var values = new ArrayList<Number>(List.of(year, month, extensions, downloads, downloadsTotal, publishers,
+                averageReviewsPerExtension, namespaceOwners, fileCount, fileTypeResourceCount, fileNodeModuleCount,
+                fileTypeResourceNodeModuleCount));
         for(int i = 0; i  < ratings; i++) {
             values.add(extensionsByRating.getOrDefault(i + 1, 0));
         }
@@ -125,6 +134,10 @@ public class AdminStatistics {
         json.topNamespaceExtensions = mapTopNamespaceExtensions();
         json.topNamespaceExtensionVersions = mapTopNamespaceExtensionVersions();
         json.topMostDownloadedExtensions = mapTopMostDownloadedExtensions();
+        json.fileCount = fileCount;
+        json.fileTypeResourceCount = fileTypeResourceCount;
+        json.fileNodeModuleCount = fileNodeModuleCount;
+        json.fileTypeResourceNodeModuleCount = fileTypeResourceNodeModuleCount;
 
         return json;
     }
@@ -326,16 +339,69 @@ public class AdminStatistics {
         this.topMostDownloadedExtensions = topMostDownloadedExtensions;
     }
 
+    public Integer getFileCount() {
+        return fileCount;
+    }
+
+    public void setFileCount(Integer fileCount) {
+        this.fileCount = fileCount;
+    }
+
+    public Integer getFileTypeResourceCount() {
+        return fileTypeResourceCount;
+    }
+
+    public void setFileTypeResourceCount(Integer fileTypeResourceCount) {
+        this.fileTypeResourceCount = fileTypeResourceCount;
+    }
+
+    public Integer getFileNodeModuleCount() {
+        return fileNodeModuleCount;
+    }
+
+    public void setFileNodeModuleCount(Integer fileNodeModuleCount) {
+        this.fileNodeModuleCount = fileNodeModuleCount;
+    }
+
+    public Integer getFileTypeResourceNodeModuleCount() {
+        return fileTypeResourceNodeModuleCount;
+    }
+
+    public void setFileTypeResourceNodeModuleCount(Integer fileTypeResourceNodeModuleCount) {
+        this.fileTypeResourceNodeModuleCount = fileTypeResourceNodeModuleCount;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         AdminStatistics that = (AdminStatistics) o;
-        return id == that.id && year == that.year && month == that.month && extensions == that.extensions && downloads == that.downloads && downloadsTotal == that.downloadsTotal && publishers == that.publishers && Double.compare(that.averageReviewsPerExtension, averageReviewsPerExtension) == 0 && namespaceOwners == that.namespaceOwners && Objects.equals(extensionsByRating, that.extensionsByRating) && Objects.equals(publishersByExtensionsPublished, that.publishersByExtensionsPublished) && Objects.equals(topMostActivePublishingUsers, that.topMostActivePublishingUsers) && Objects.equals(topNamespaceExtensions, that.topNamespaceExtensions) && Objects.equals(topNamespaceExtensionVersions, that.topNamespaceExtensionVersions) && Objects.equals(topMostDownloadedExtensions, that.topMostDownloadedExtensions);
+        return id == that.id
+                && year == that.year
+                && month == that.month
+                && extensions == that.extensions
+                && downloads == that.downloads
+                && downloadsTotal == that.downloadsTotal
+                && publishers == that.publishers
+                && Double.compare(averageReviewsPerExtension, that.averageReviewsPerExtension) == 0
+                && namespaceOwners == that.namespaceOwners
+                && Objects.equals(extensionsByRating, that.extensionsByRating)
+                && Objects.equals(publishersByExtensionsPublished, that.publishersByExtensionsPublished)
+                && Objects.equals(topMostActivePublishingUsers, that.topMostActivePublishingUsers)
+                && Objects.equals(topNamespaceExtensions, that.topNamespaceExtensions)
+                && Objects.equals(topNamespaceExtensionVersions, that.topNamespaceExtensionVersions)
+                && Objects.equals(topMostDownloadedExtensions, that.topMostDownloadedExtensions)
+                && Objects.equals(fileCount, that.fileCount)
+                && Objects.equals(fileTypeResourceCount, that.fileTypeResourceCount)
+                && Objects.equals(fileNodeModuleCount, that.fileNodeModuleCount)
+                && Objects.equals(fileTypeResourceNodeModuleCount, that.fileTypeResourceNodeModuleCount);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, year, month, extensions, downloads, downloadsTotal, publishers, averageReviewsPerExtension, namespaceOwners, extensionsByRating, publishersByExtensionsPublished, topMostActivePublishingUsers, topNamespaceExtensions, topNamespaceExtensionVersions, topMostDownloadedExtensions);
+        return Objects.hash(id, year, month, extensions, downloads, downloadsTotal, publishers, averageReviewsPerExtension,
+                namespaceOwners, extensionsByRating, publishersByExtensionsPublished, topMostActivePublishingUsers,
+                topNamespaceExtensions, topNamespaceExtensionVersions, topMostDownloadedExtensions, fileCount,
+                fileTypeResourceCount, fileNodeModuleCount, fileTypeResourceNodeModuleCount);
     }
 }

@@ -80,6 +80,9 @@ public class AdminService {
     public void applicationStarted(ApplicationStartedEvent event) {
         var jobRequest = new HandlerJobRequest<>(MonthlyAdminStatisticsJobRequestHandler.class);
         scheduler.scheduleRecurrently("MonthlyAdminStatistics", Cron.monthly(1, 0, 3), ZoneId.of("UTC"), jobRequest);
+
+        // TODO remove after done debugging
+        scheduler.enqueue(jobRequest);
     }
 
     @Transactional(rollbackOn = ErrorResultException.class)

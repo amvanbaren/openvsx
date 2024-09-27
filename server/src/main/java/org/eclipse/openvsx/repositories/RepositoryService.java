@@ -698,4 +698,12 @@ public class RepositoryService {
     public Streamable<Extension> findDeprecatedExtensions(Extension replacement) {
         return extensionRepo.findByReplacement(replacement);
     }
+
+    public Integer countFileResources(String... types) {
+        return fileResourceJooqRepo.countFileResources(types);
+    }
+
+    public Integer countFileResourceNodeModules(String... types) {
+        return fileResourceJooqRepo.countFileResourceNodeModules(types);
+    }
 }

@@ -227,7 +227,9 @@ class RepositoryServiceSmokeTest {
                 () -> repositories.deactivateKeyPairs(),
                 () -> repositories.hasExtension("namespaceName", "extensionName"),
                 () -> repositories.findDeprecatedExtensions(extension),
-                () -> repositories.findLatestReplacement(1L, null, false, false)
+                () -> repositories.findLatestReplacement(1L, null, false, false),
+                () -> repositories.countFileResources(),
+                () -> repositories.countFileResourceNodeModules(FileResource.RESOURCE)
         );
 
         // check that we did not miss anything
