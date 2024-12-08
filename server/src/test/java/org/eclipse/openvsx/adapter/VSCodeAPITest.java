@@ -33,8 +33,6 @@ import org.eclipse.openvsx.security.TokenService;
 import org.eclipse.openvsx.storage.*;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.eclipse.openvsx.util.VersionService;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -54,7 +52,6 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -564,7 +561,7 @@ class VSCodeAPITest {
                 ? Collections.singletonList(new SearchHit<>("0", "1", null, 1.0f, null, null, null, null, null, null, entry1))
                 : Collections.emptyList();
         var searchHits = new SearchHitsImpl<>(searchResults.size(), TotalHitsRelation.EQUAL_TO, 1.0f, "1", null,
-                searchResults, null, null);
+                searchResults, null, null, null);
 
         Mockito.when(integrityService.isEnabled())
                 .thenReturn(true);

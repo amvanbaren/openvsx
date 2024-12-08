@@ -10,7 +10,7 @@ plugins {
     id 'jacoco'
     id 'nu.studer.jooq' version '8.2.1'
     id 'de.undercouch.download' version '5.4.0'
-    id 'org.springframework.boot' version '3.2.4'
+    id 'org.springframework.boot' version '3.3.6'
     id 'io.spring.dependency-management' version '1.1.0'
     id 'io.gatling.gradle' version '3.9.5'
     id 'java'
@@ -22,18 +22,18 @@ def versions = [
     java: '17',
     flyway: '9.19.1',
     springdoc: '2.1.0',
-    gcloud: '2.36.1',
+    gcloud: '2.45.0',
     azure: '12.23.0',
     aws: '2.29.29',
     junit: '5.9.2',
     testcontainers: '1.15.2',
     jackson: '2.15.2',
     woodstox: '6.4.0',
-    jobrunr: '7.3.1',
+    jobrunr: '7.3.2',
     bucket4j: '0.12.7',
     ehcache: '3.10.8',
-    tika: '2.6.0',
-    bouncycastle: '1.77',
+    tika: '3.0.0',
+    bouncycastle: '1.78',
     commons_lang3: '3.12.0',
     httpclient5: '5.2.1',
     jaxb_api: '2.3.1',
