@@ -35,7 +35,7 @@ const Footer = styled('footer')(({ theme }: { theme: Theme }) => ({
 }));
 
 export const OtherPages: FunctionComponent = () => {
-    const { pageSettings, user, canLogin } = useContext(MainContext);
+    const { pageSettings } = useContext(MainContext);
     const {
         additionalRoutes: AdditionalRoutes,
         banner: BannerComponent,

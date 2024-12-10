@@ -9,8 +9,6 @@
  ********************************************************************************/
 
 import React, { FunctionComponent, PropsWithChildren, useContext } from 'react';
-import { Typography, MenuItem, Link, Button } from '@mui/material';
-import React, { FunctionComponent, PropsWithChildren, useContext } from 'react';
 import { Typography, MenuItem, Link, Button, IconButton, Accordion, AccordionSummary, Avatar, AccordionDetails } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import { Link as RouteLink } from 'react-router-dom';
@@ -24,7 +22,6 @@ import AccountBoxIcon from '@mui/icons-material/AccountBox';
 import { UserAvatar } from '../pages/user/avatar';
 import { UserSettingsRoutes } from '../pages/user/user-settings';
 import { styled, Theme } from '@mui/material/styles';
-import { MainContext } from '../context';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import LogoutIcon from '@mui/icons-material/Logout';

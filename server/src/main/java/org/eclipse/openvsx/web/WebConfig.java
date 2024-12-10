@@ -41,7 +41,6 @@ public class WebConfig implements WebMvcConfigurer {
         if (!StringUtils.isEmpty(webuiUrl) && URI.create(webuiUrl).isAbsolute()) {
             // The Web UI is given with an absolute URL, so we need to enable CORS with credentials.
             var authorizedEndpoints = new String[] {
-                "/can-login",
                 "/user/**",
                 "/logout",
                 "/api/*/*/review/**",
@@ -54,6 +53,9 @@ public class WebConfig implements WebMvcConfigurer {
                         .allowedOrigins(webuiUrl)
                         .allowCredentials(true);
             }
+
+            registry.addMapping("/can-login")
+                    .allowedOrigins(webuiUrl);
             registry.addMapping("/documents/**")
                     .allowedOrigins("*");
             registry.addMapping("/api/**")
