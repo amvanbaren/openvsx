@@ -24,7 +24,7 @@ import '../src/main.css';
 import { OtherPages } from './other-pages';
 
 export const Main: FunctionComponent<MainProps> = props => {
-    const [canLogin, setCanLogin] = useState(!props.noLogin);
+    const [canLogin, setCanLogin] = useState<boolean>(props.canLogin ?? true);
     const [user, setUser] = useState<UserData>();
     const [userLoading, setUserLoading] = useState<boolean>(true);
     const [error, setError] = useState<{message: string, code?: number | string}>();
@@ -47,6 +47,10 @@ export const Main: FunctionComponent<MainProps> = props => {
     }, []);
 
     const getCanLogin = async () => {
+        if(props.canLogin != null) {
+            return
+        }
+
         const response = await props.service.canLogin(abortController.current);
         setCanLogin(isSuccess(response));
     };
@@ -124,5 +128,5 @@ export const Main: FunctionComponent<MainProps> = props => {
 export interface MainProps {
     service: ExtensionRegistryService;
     pageSettings: PageSettings;
-    noLogin?: boolean;
+    canLogin?: boolean;
 }
