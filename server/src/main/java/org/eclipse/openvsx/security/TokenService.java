@@ -16,6 +16,7 @@ import org.eclipse.openvsx.entities.AuthToken;
 import org.eclipse.openvsx.entities.UserData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.util.Pair;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -44,16 +45,20 @@ public class TokenService {
     public TokenService(
             TransactionTemplate transactions,
             EntityManager entityManager,
-            ClientRegistrationRepository clientRegistrationRepository
+            @Autowired(required = false) ClientRegistrationRepository clientRegistrationRepository
     ) {
         this.transactions = transactions;
         this.entityManager = entityManager;
         this.clientRegistrationRepository = clientRegistrationRepository;
     }
 
+    private boolean isEnabled() {
+        return clientRegistrationRepository != null;
+    }
+
     public AuthToken updateTokens(long userId, String registrationId, OAuth2AccessToken accessToken,
             OAuth2RefreshToken refreshToken) {
-        var userData = entityManager.find(UserData.class, userId);
+        var userData = isEnabled() ? entityManager.find(UserData.class, userId) : null;
         if (userData == null) {
             return null;
         }
@@ -119,6 +124,10 @@ public class TokenService {
     }
 
     public AuthToken getActiveToken(UserData userData, String registrationId) {
+        if(!isEnabled()) {
+            return null;
+        }
+
         switch (registrationId) {
             case "github": {
                 return userData.getGithubToken();
@@ -148,7 +157,7 @@ public class TokenService {
         return instant != null && Instant.now().isAfter(instant);
     }
 
-    protected Pair<OAuth2AccessToken, OAuth2RefreshToken> refreshEclipseToken(AuthToken token) {
+    private Pair<OAuth2AccessToken, OAuth2RefreshToken> refreshEclipseToken(AuthToken token) {
         if(token.refreshToken() == null || isExpired(token.refreshExpiresAt())) {
             return null;
         }

@@ -15,7 +15,7 @@ import { AdminDashboard, AdminDashboardRoutes } from './pages/admin-dashboard/ad
 import { ErrorDialog } from './components/error-dialog';
 import { handleError } from './utils';
 import { ExtensionRegistryService } from './extension-registry-service';
-import { UserData, isError, ReportedError } from './extension-registry-types';
+import { UserData, isError, ReportedError, isSuccess } from './extension-registry-types';
 import { MainContext } from './context';
 import { PageSettings } from './page-settings';
 import { ErrorResponse } from './server-request';
@@ -24,6 +24,7 @@ import '../src/main.css';
 import { OtherPages } from './other-pages';
 
 export const Main: FunctionComponent<MainProps> = props => {
+    const [canLogin, setCanLogin] = useState(!props.noLogin);
     const [user, setUser] = useState<UserData>();
     const [userLoading, setUserLoading] = useState<boolean>(true);
     const [error, setError] = useState<{message: string, code?: number | string}>();
@@ -31,6 +32,8 @@ export const Main: FunctionComponent<MainProps> = props => {
     const abortController = useRef<AbortController>(new AbortController());
 
     useEffect(() => {
+        getCanLogin();
+
         // If there was an authentication error, get the message from the server and show it
         const searchParams = new URLSearchParams(window.location.search);
         if (searchParams.has('auth-error')) {
@@ -42,6 +45,11 @@ export const Main: FunctionComponent<MainProps> = props => {
 
         return () => abortController.current.abort();
     }, []);
+
+    const getCanLogin = async () => {
+        const response = await props.service.canLogin(abortController.current);
+        setCanLogin(isSuccess(response));
+    };
 
     const updateUser = async () => {
         try {
@@ -81,8 +89,8 @@ export const Main: FunctionComponent<MainProps> = props => {
         return <>
             { MainHeadTagsComponent ? <MainHeadTagsComponent pageSettings={props.pageSettings}/> : null }
             <Routes>
-                <Route path={AdminDashboardRoutes.MAIN + '/*'} element={<AdminDashboard userLoading={userLoading} />} />
-                <Route path='*' element={ <OtherPages user={user} userLoading={userLoading} /> } />
+                <Route path={AdminDashboardRoutes.MAIN + '/*'} element={<AdminDashboard />} />
+                <Route path='*' element={ <OtherPages /> } />
             </Routes>
             {
                 error ?
@@ -99,7 +107,9 @@ export const Main: FunctionComponent<MainProps> = props => {
     const mainContext: MainContext = {
         service: props.service,
         pageSettings: props.pageSettings,
+        canLogin,
         user,
+        userLoading,
         updateUser,
         handleError: onError
     };
@@ -114,4 +124,5 @@ export const Main: FunctionComponent<MainProps> = props => {
 export interface MainProps {
     service: ExtensionRegistryService;
     pageSettings: PageSettings;
+    noLogin?: boolean;
 }

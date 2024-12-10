@@ -32,8 +32,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, OAuth2UserServices userServices) throws Exception {
-        var redirectUrl = StringUtils.isEmpty(webuiUrl) ? "/" : webuiUrl;
-        return http.authorizeHttpRequests(
+        var filterChain = http.authorizeHttpRequests(
                 registry -> registry
                         .requestMatchers(antMatchers("/*", "/login/**", "/oauth2/**", "/user", "/user/auth-error", "/logout", "/actuator/health/**", "/actuator/metrics", "/actuator/metrics/**", "/actuator/prometheus", "/v3/api-docs/**", "/swagger-resources/**", "/swagger-ui/**", "/webjars/**"))
                             .permitAll()
@@ -52,15 +51,20 @@ public class SecurityConfig {
                 .csrf(configurer -> {
                     configurer.ignoringRequestMatchers(antMatchers("/api/-/publish", "/api/-/namespace/create", "/api/-/query", "/vscode/**"));
                 })
-                .exceptionHandling(configurer -> configurer.authenticationEntryPoint(new Http403ForbiddenEntryPoint()))
-                .oauth2Login(configurer -> {
-                    configurer.defaultSuccessUrl(redirectUrl);
-                    configurer.successHandler(new CustomAuthenticationSuccessHandler(redirectUrl));
-                    configurer.failureUrl(redirectUrl + "?auth-error");
-                    configurer.userInfoEndpoint(customizer -> customizer.oidcUserService(userServices.getOidc()).userService(userServices.getOauth2()));
-                })
-                .logout(configurer -> configurer.logoutSuccessUrl(redirectUrl))
-                .build();
+                .exceptionHandling(configurer -> configurer.authenticationEntryPoint(new Http403ForbiddenEntryPoint()));
+
+        if(userServices.canLogin()) {
+            var redirectUrl = StringUtils.isEmpty(webuiUrl) ? "/" : webuiUrl;
+            filterChain.oauth2Login(configurer -> {
+                configurer.defaultSuccessUrl(redirectUrl);
+                configurer.successHandler(new CustomAuthenticationSuccessHandler(redirectUrl));
+                configurer.failureUrl(redirectUrl + "?auth-error");
+                configurer.userInfoEndpoint(customizer -> customizer.oidcUserService(userServices.getOidc()).userService(userServices.getOauth2()));
+            })
+            .logout(configurer -> configurer.logoutSuccessUrl(redirectUrl));
+        }
+
+        return filterChain.build();
     }
 
     private RequestMatcher[] antMatchers(String... patterns)

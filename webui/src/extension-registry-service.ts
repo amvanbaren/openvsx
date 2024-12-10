@@ -24,6 +24,13 @@ export class ExtensionRegistryService {
         this.admin = new AdminConstructor(this);
     }
 
+    canLogin(abortController: AbortController): Promise<Readonly<SuccessResult | ErrorResult>> {
+        return sendRequest({
+            abortController,
+            endpoint: createAbsoluteURL([this.serverUrl, 'can-login'])
+        });
+    }
+
     getLoginUrl(): string {
         return createAbsoluteURL([this.serverUrl, 'oauth2', 'authorization', 'github']);
     }

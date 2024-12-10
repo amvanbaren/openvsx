@@ -9,6 +9,8 @@
  ********************************************************************************/
 
 import React, { FunctionComponent, PropsWithChildren, useContext } from 'react';
+import { Typography, MenuItem, Link, Button } from '@mui/material';
+import React, { FunctionComponent, PropsWithChildren, useContext } from 'react';
 import { Typography, MenuItem, Link, Button, IconButton, Accordion, AccordionSummary, Avatar, AccordionDetails } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import { Link as RouteLink } from 'react-router-dom';
@@ -28,6 +30,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { AdminDashboardRoutes } from '../pages/admin-dashboard/admin-dashboard';
 import { LogoutForm } from '../pages/user/logout';
+import { MainContext } from '../context';
 
 //-------------------- Mobile View --------------------//
 
@@ -116,25 +119,26 @@ export const MobileUserAvatar: FunctionComponent = () => {
 };
 
 export const MobileMenuContent: FunctionComponent = () => {
-
+    const { canLogin, service, user } = useContext(MainContext);
     const location = useLocation();
-    const { service, user } = useContext(MainContext);
 
     return <>
         {
-            user
-                ? <MobileUserAvatar/>
-                : <MobileMenuItem>
-                    <Link href={service.getLoginUrl()}>
-                        <MobileMenuItemText>
-                            <AccountBoxIcon sx={itemIcon} />
-                            Log In
-                        </MobileMenuItemText>
-                    </Link>
-                </MobileMenuItem>
+            canLogin && (
+                user
+                    ? <MobileUserAvatar/>
+                    : <MobileMenuItem>
+                        <Link href={service.getLoginUrl()}>
+                            <MobileMenuItemText>
+                                <AccountBoxIcon sx={itemIcon} />
+                                Log In
+                            </MobileMenuItemText>
+                        </Link>
+                    </MobileMenuItem>
+            )
         }
         {
-            !location.pathname.startsWith(UserSettingsRoutes.ROOT)
+            canLogin && !location.pathname.startsWith(UserSettingsRoutes.ROOT)
             ? <MobileMenuItem>
                 <RouteLink to='/user-settings/extensions'>
                     <MobileMenuItemText>
@@ -200,7 +204,7 @@ export const MenuLink = styled(Link)(headerItem);
 export const MenuRouteLink = styled(RouteLink)(headerItem);
 
 export const DefaultMenuContent: FunctionComponent = () => {
-    const { service, user } = useContext(MainContext);
+    const { service, user, canLogin } = useContext(MainContext);
     return <>
         <MenuLink href='https://github.com/eclipse/openvsx/wiki'>
             Documentation
@@ -211,19 +215,20 @@ export const DefaultMenuContent: FunctionComponent = () => {
         <MenuRouteLink to='/about'>
             About
         </MenuRouteLink>
-        <Button variant='contained' color='secondary' href='/user-settings/extensions' sx={{ mx: 2.5 }}>
+        {canLogin && <Button variant='contained' color='secondary' href='/user-settings/extensions' sx={{ mx: 2.5 }}>
             Publish
-        </Button>
+        </Button>}
         {
-            user ?
-                <UserAvatar />
-                :
-                <IconButton
-                    href={service.getLoginUrl()}
-                    title='Log In'
-                    aria-label='Log In' >
-                    <AccountBoxIcon />
-                </IconButton>
+            canLogin && (
+                user
+                    ? <UserAvatar />
+                    : <IconButton
+                        href={service.getLoginUrl()}
+                        title='Log In'
+                        aria-label='Log In' >
+                        <AccountBoxIcon />
+                    </IconButton>
+            )
         }
     </>;
 };

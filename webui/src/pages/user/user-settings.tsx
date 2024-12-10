@@ -31,9 +31,9 @@ export namespace UserSettingsRoutes {
     export const EXTENSIONS = createRoute([ROOT, 'extensions']);
 }
 
-export const UserSettings: FunctionComponent<UserSettingsProps> = props => {
+export const UserSettings: FunctionComponent = () => {
 
-    const { pageSettings, service, user } = useContext(MainContext);
+    const { service, pageSettings, user, userLoading } = useContext(MainContext);
     const { tab } = useParams();
 
     const renderTab = (tab: string, user: UserData): ReactNode => {
@@ -52,7 +52,7 @@ export const UserSettings: FunctionComponent<UserSettingsProps> = props => {
     };
 
     const renderContent = (): ReactNode => {
-        if (props.userLoading) {
+        if (userLoading) {
             return <DelayedLoadIndicator loading={true} />;
         }
 
@@ -101,7 +101,3 @@ export const UserSettings: FunctionComponent<UserSettingsProps> = props => {
         { renderContent() }
     </>;
 };
-
-export interface UserSettingsProps {
-    userLoading: boolean;
-}

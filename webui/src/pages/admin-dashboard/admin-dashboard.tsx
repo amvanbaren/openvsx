@@ -32,8 +32,8 @@ export namespace AdminDashboardRoutes {
     export const PUBLISHER_ADMIN = createRoute([ROOT, 'publisher']);
 }
 
-export const AdminDashboard: FunctionComponent<AdminDashboardProps> = props => {
-    const { user } = useContext(MainContext);
+export const AdminDashboard: FunctionComponent = () => {
+    const { user, userLoading } = useContext(MainContext);
 
     const navigate = useNavigate();
     const toMainPage = () => navigate('/');
@@ -41,7 +41,7 @@ export const AdminDashboard: FunctionComponent<AdminDashboardProps> = props => {
     const [currentPage, setCurrentPage] = useState<string | undefined>(useLocation().pathname);
     const handleOpenRoute = (route: string) => setCurrentPage(route);
 
-    const message = user ? 'You are not authorized as administrator.' : !props.userLoading ? 'You are not logged in.' : null;
+    const message = user ? 'You are not authorized as administrator.' : !userLoading ? 'You are not logged in.' : null;
     return <>
         <CssBaseline />
         <Box display='flex' height='100vh'>
@@ -81,7 +81,3 @@ export const AdminDashboard: FunctionComponent<AdminDashboardProps> = props => {
         </Box>
     </>;
 };
-
-export interface AdminDashboardProps {
-    userLoading: boolean;
-}
