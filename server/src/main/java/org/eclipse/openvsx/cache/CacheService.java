@@ -10,6 +10,7 @@
 package org.eclipse.openvsx.cache;
 
 import io.micrometer.observation.annotation.Observed;
+import org.eclipse.openvsx.adapter.ExtensionQueryExtensionData;
 import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.util.TargetPlatform;
@@ -17,8 +18,8 @@ import org.eclipse.openvsx.util.VersionAlias;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 public class CacheService {
@@ -32,6 +33,8 @@ public class CacheService {
     public static final String CACHE_AVERAGE_REVIEW_RATING = "average.review.rating";
     public static final String CACHE_SITEMAP = "sitemap";
     public static final String CACHE_MALICIOUS_EXTENSIONS = "malicious.extensions";
+    public static final String CACHE_EXTENSIONQUERY_EXTENSION_IDS = "vscode.extensionquery.ids";
+    public static final String CACHE_EXTENSIONQUERY_RESULTS = "vscode.extensionquery.results";
 
     public static final String GENERATOR_EXTENSION_JSON = "extensionJsonCacheKeyGenerator";
     public static final String GENERATOR_LATEST_EXTENSION_VERSION = "latestExtensionVersionCacheKeyGenerator";
@@ -185,5 +188,45 @@ public class CacheService {
         }
 
         cache.evict(filesCacheKeyGenerator.generate(namespaceName, extensionName, targetPlatform, version, path));
+    }
+
+    public List<ExtensionQueryExtensionData> getExtensionQueryExtensionDataByPublicId(Set<String> publicIds) {
+        var cache = cacheManager.getCache(CACHE_EXTENSIONQUERY_EXTENSION_IDS);
+        if(cache == null) {
+            return Collections.emptyList();
+        }
+
+        var extensionIds = publicIds.stream()
+                .map(publicId -> cache.get(publicId, String.class))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        return getExtensionQueryExtensionDataByExtensionId(extensionIds);
+    }
+
+    public List<ExtensionQueryExtensionData> getExtensionQueryExtensionDataByExtensionId(Set<String> extensionIds) {
+        var cache = cacheManager.getCache(CACHE_EXTENSIONQUERY_RESULTS);
+        if(cache == null) {
+            return Collections.emptyList();
+        }
+
+        return extensionIds.stream()
+                .map(extensionId -> cache.get(extensionId, ExtensionQueryExtensionData.class))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    public void putExtensionQueryExtensionData(ExtensionQueryExtensionData data) {
+        var cache = cacheManager.getCache(CACHE_EXTENSIONQUERY_RESULTS);
+        if(cache == null) {
+            return;
+        }
+        cache.put(data.extensionId(), data);
+
+        cache = cacheManager.getCache(CACHE_EXTENSIONQUERY_EXTENSION_IDS);
+        if(cache == null) {
+            return;
+        }
+        cache.put(data.publicId(), data.extensionId());
     }
 }

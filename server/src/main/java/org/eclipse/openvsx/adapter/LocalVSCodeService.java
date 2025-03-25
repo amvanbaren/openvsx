@@ -18,12 +18,14 @@ import org.eclipse.openvsx.entities.ExtensionVersion;
 import org.eclipse.openvsx.entities.FileResource;
 import org.eclipse.openvsx.publish.ExtensionVersionIntegrityService;
 import org.eclipse.openvsx.repositories.RepositoryService;
+import org.eclipse.openvsx.search.ExtensionSearch;
 import org.eclipse.openvsx.search.SearchUtilService;
 import org.eclipse.openvsx.storage.StorageUtilService;
 import org.eclipse.openvsx.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -38,7 +40,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.eclipse.openvsx.adapter.ExtensionQueryParam.Criterion.*;
-import static org.eclipse.openvsx.adapter.ExtensionQueryParam.*;
 import static org.eclipse.openvsx.adapter.ExtensionQueryResult.Extension.FLAG_PREVIEW;
 import static org.eclipse.openvsx.adapter.ExtensionQueryResult.ExtensionFile.*;
 import static org.eclipse.openvsx.adapter.ExtensionQueryResult.Property.*;
@@ -117,7 +118,40 @@ public class LocalVSCodeService implements IVSCodeService {
         }
 
         Long totalCount = null;
-        List<Extension> extensionsList;
+        List<ExtensionSearch> searchHits = Collections.emptyList();
+        if(search.isEnabled() && extensionIds.isEmpty() && extensionNames.isEmpty()) {
+            try {
+                var pageOffset = pageNumber * pageSize;
+                var searchOptions = new SearchUtilService.Options(queryString, category, targetPlatform, pageSize,
+                        pageOffset, sortOrder, sortBy, false, new String[]{BuiltInExtensionUtil.getBuiltInNamespace()});
+
+                var searchResult = search.search(searchOptions);
+                totalCount = searchResult.getTotalHits();
+                searchHits = searchResult.getSearchHits().stream()
+                        .map(SearchHit::getContent)
+                        .toList();
+            } catch (ErrorResultException exc) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exc.getMessage(), exc);
+            }
+        }
+
+        // GET FROM CACHE
+        var data = new ArrayList<ExtensionQueryExtensionData>();
+        if (!extensionIds.isEmpty()) {
+            data.addAll(cache.getExtensionQueryExtensionDataByPublicId(extensionIds));
+            data.stream().map(ExtensionQueryExtensionData::publicId).toList().forEach(extensionIds::remove);
+        } else if (!extensionNames.isEmpty()) {
+            data.addAll(cache.getExtensionQueryExtensionDataByExtensionId(extensionNames));
+            data.stream().map(ExtensionQueryExtensionData::extensionId).toList().forEach(extensionNames::remove);
+        } else if (!searchHits.isEmpty()) {
+            var searchIds = searchHits.stream().map(ExtensionSearch::getExtensionId).collect(Collectors.toSet());
+            data.addAll(cache.getExtensionQueryExtensionDataByExtensionId(searchIds));
+            var foundSearchIds = data.stream().map(ExtensionQueryExtensionData::extensionId).toList();
+            searchHits = searchHits.stream().filter(hit -> !foundSearchIds.contains(hit.getExtensionId())).toList();
+        }
+
+        // COMPUTE MISSING DATA
+        var extensionsList = Collections.<Extension>emptyList();
         if (!extensionIds.isEmpty()) {
             extensionsList = repositories.findActiveExtensionsByPublicId(extensionIds, BuiltInExtensionUtil.getBuiltInNamespace());
         } else if (!extensionNames.isEmpty()) {
@@ -128,85 +162,41 @@ public class LocalVSCodeService implements IVSCodeService {
                     .map(extensionId -> repositories.findActiveExtension(extensionId.extension(), extensionId.namespace()))
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
-        } else if (!search.isEnabled()) {
-            extensionsList = Collections.emptyList();
-        } else {
-            try {
-                var pageOffset = pageNumber * pageSize;
-                var searchOptions = new SearchUtilService.Options(queryString, category, targetPlatform, pageSize,
-                        pageOffset, sortOrder, sortBy, false, new String[]{BuiltInExtensionUtil.getBuiltInNamespace()});
+        } else if (!searchHits.isEmpty()) {
+            var ids = searchHits.stream()
+                    .map(ExtensionSearch::getId)
+                    .collect(Collectors.toList());
 
-                var searchResult = search.search(searchOptions);
-                totalCount = searchResult.getTotalHits();
-                var ids = searchResult.getSearchHits().stream()
-                        .map(hit -> hit.getContent().getId())
-                        .collect(Collectors.toList());
-
-                var extensionsMap = repositories.findActiveExtensionsById(ids).stream()
-                        .collect(Collectors.toMap(e -> e.getId(), e -> e));
-
-                // keep the same order as search results
-                extensionsList = ids.stream()
-                        .map(extensionsMap::get)
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toList());
-            } catch (ErrorResultException exc) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exc.getMessage(), exc);
-            }
+            extensionsList = repositories.findActiveExtensionsById(ids);
         }
         if(totalCount == null) {
             totalCount = (long) extensionsList.size();
         }
 
-        var flags = param.flags();
-        var extensionsMap = extensionsList.stream().collect(Collectors.toMap(e -> e.getId(), e -> e));
+        var extensionsMap = extensionsList.stream().collect(Collectors.toMap(Extension::getId, e -> e));
         List<ExtensionVersion> allActiveExtensionVersions = repositories.findActiveExtensionVersions(extensionsMap.keySet(), targetPlatform);
 
-        List<ExtensionVersion> extensionVersions;
-        if (test(flags, FLAG_INCLUDE_LATEST_VERSION_ONLY)) {
-            extensionVersions = allActiveExtensionVersions.stream()
-                    .collect(Collectors.groupingBy(ev -> ev.getExtension().getId() + "@" + ev.getTargetPlatform()))
-                    .values()
-                    .stream()
-                    .map(list -> versions.getLatest(list, true))
-                    .collect(Collectors.toList());
-        } else if (test(flags, FLAG_INCLUDE_VERSIONS) || test(flags, FLAG_INCLUDE_VERSION_PROPERTIES)) {
-            extensionVersions = allActiveExtensionVersions;
-        } else {
-            extensionVersions = Collections.emptyList();
-        }
-
-        var comparator = Comparator.<ExtensionVersion, Long>comparing(ev -> ev.getExtension().getId())
-                .thenComparing(ExtensionVersion.SORT_COMPARATOR);
-
-        var extensionVersionsMap = extensionVersions.stream()
-                .map(ev -> {
-                    ev.setExtension(extensionsMap.get(ev.getExtension().getId()));
-                    return ev;
-                })
-                .sorted(comparator)
+        var extensionVersionsMap = allActiveExtensionVersions.stream()
+                .peek(ev -> ev.setExtension(extensionsMap.get(ev.getExtension().getId())))
+                .sorted(Comparator.<ExtensionVersion, Long>comparing(ev -> ev.getExtension().getId())
+                        .thenComparing(ExtensionVersion.SORT_COMPARATOR))
                 .collect(Collectors.groupingBy(ev -> ev.getExtension().getId()));
 
-        Map<Long, List<FileResource>> fileResources;
-        if (test(flags, FLAG_INCLUDE_FILES) && !extensionVersionsMap.isEmpty()) {
-            var types = new ArrayList<>(List.of(MANIFEST, README, LICENSE, ICON, DOWNLOAD, CHANGELOG, VSIXMANIFEST));
-            if(integrityService.isEnabled()) {
-                types.add(DOWNLOAD_SIG);
-            }
+        var latestExtensionVersionsMap = extensionVersionsMap.entrySet().stream()
+                .map(entry -> {
+                    var ids = entry.getValue().stream()
+                            .collect(Collectors.groupingBy(ExtensionVersion::getTargetPlatform))
+                            .values()
+                            .stream()
+                            .map(list -> versions.getLatest(list, true))
+                            .map(ExtensionVersion::getId)
+                            .toList();
 
-            var idsMap = extensionVersionsMap.values().stream()
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.toMap(ev -> ev.getId(), ev -> ev));
+                    return Map.entry(entry.getKey(), ids);
+                })
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            fileResources = repositories.findFileResourcesByExtensionVersionIdAndType(idsMap.keySet(), types).stream()
-                    .map(r -> {
-                        r.setExtension(idsMap.get(r.getExtension().getId()));
-                        return r;
-                    })
-                    .collect(Collectors.groupingBy(fr -> fr.getExtension().getId()));
-        } else {
-            fileResources = Collections.emptyMap();
-        }
+        var fileResources = includeFiles(allActiveExtensionVersions);
 
         var latestVersions = allActiveExtensionVersions.stream()
                 .collect(Collectors.groupingBy(ev -> ev.getExtension().getId()))
@@ -215,18 +205,191 @@ public class LocalVSCodeService implements IVSCodeService {
                 .map(list -> versions.getLatest(list, false))
                 .collect(Collectors.toMap(ev -> ev.getExtension().getId(), ev -> ev));
 
-        var extensionQueryResults = new ArrayList<ExtensionQueryResult.Extension>();
         for(var extension : extensionsList) {
             var latest = latestVersions.get(extension.getId());
             var queryVersions = extensionVersionsMap.getOrDefault(extension.getId(), Collections.emptyList()).stream()
-                    .map(extVer -> toQueryVersion(extVer, fileResources, flags))
+                    .map(extVer -> toQueryVersion(extVer, fileResources))
                     .collect(Collectors.toList());
 
-            var queryExt = toQueryExtension(extension, latest, queryVersions, flags);
-            extensionQueryResults.add(queryExt);
+            var latestQueryVersions = latestExtensionVersionsMap.get(extension.getId());
+            var queryExt = toQueryExtension(extension, latest, queryVersions, latestQueryVersions);
+            cache.putExtensionQueryExtensionData(queryExt);
+            data.add(queryExt);
         }
 
+        var results = Collections.<ExtensionQueryExtensionData>emptyList();
+        if (!extensionIds.isEmpty()) {
+            var dataMap = data.stream().collect(Collectors.toMap(ExtensionQueryExtensionData::publicId, d -> d));
+            results = extensionIds.stream().map(dataMap::get).toList();
+        } else if (!extensionNames.isEmpty()) {
+            var dataMap = data.stream().collect(Collectors.toMap(ExtensionQueryExtensionData::extensionId, d -> d));
+            results = extensionNames.stream().map(dataMap::get).toList();
+        } else if (!searchHits.isEmpty()) {
+            var dataMap = data.stream().collect(Collectors.toMap(ExtensionQueryExtensionData::extensionId, d -> d));
+            results = searchHits.stream().map(ExtensionSearch::getExtensionId).map(dataMap::get).toList();
+        }
+
+        var extensionQueryResults = results.stream().map(d -> d.toJson(param.flags())).toList();
         return toQueryResult(extensionQueryResults, totalCount);
+    }
+
+    private String getSortBy(int sortBy) {
+        return switch (sortBy) {
+            case 4 -> // InstallCount
+                    "downloadCount";
+            case 5 -> // PublishedDate
+                    "timestamp";
+            case 6 -> // AverageRating
+                    "averageRating";
+            default -> "relevance";
+        };
+    }
+
+    private String getSortOrder(int sortOrder) {
+        return sortOrder == 1 ? "asc" : "desc";
+    }
+
+    private Map<Long, List<FileResource>> includeFiles(List<ExtensionVersion> extVersions) {
+        var types = new ArrayList<>(List.of(MANIFEST, README, LICENSE, ICON, DOWNLOAD, CHANGELOG, VSIXMANIFEST));
+        if(integrityService.isEnabled()) {
+            types.add(DOWNLOAD_SIG);
+        }
+
+        var idsMap = extVersions.stream().collect(Collectors.toMap(ExtensionVersion::getId, ev -> ev));
+        return repositories.findFileResourcesByExtensionVersionIdAndType(idsMap.keySet(), types).stream()
+                .peek(r -> r.setExtension(idsMap.get(r.getExtension().getId())))
+                .collect(Collectors.groupingBy(fr -> fr.getExtension().getId()));
+    }
+
+    public ExtensionQueryResult toQueryResult(List<ExtensionQueryResult.Extension> extensions) {
+        return toQueryResult(extensions, extensions.size());
+    }
+
+    public ExtensionQueryResult toQueryResult(List<ExtensionQueryResult.Extension> extensions, long totalCount) {
+        var countMetadataItem = new ExtensionQueryResult.ResultMetadataItem("TotalCount", totalCount);
+        var countMetadata = new ExtensionQueryResult.ResultMetadata("ResultCount", List.of(countMetadataItem));
+        var resultItem = new ExtensionQueryResult.ResultItem(extensions, List.of(countMetadata));
+        return new ExtensionQueryResult(List.of(resultItem));
+    }
+
+    private ExtensionQueryExtensionData toQueryExtension(Extension extension, ExtensionVersion latest, List<ExtensionQueryExtensionData.ExtensionVersion> versions, List<Long> latestVersions) {
+        var statistics = getQueryExtensionStatistics(extension);
+        var namespace = extension.getNamespace();
+        var publisher = new ExtensionQueryResult.Publisher(
+                !StringUtils.isEmpty(namespace.getDisplayName()) ? namespace.getDisplayName() : namespace.getName(),
+                namespace.getPublicId(),
+                namespace.getName(),
+                null,
+                null
+        );
+
+        return new ExtensionQueryExtensionData(
+                extension.getPublicId(),
+                NamingUtil.toExtensionId(extension),
+                extension.getName(),
+                latest.getDisplayName(),
+                latest.getDescription(),
+                publisher,
+                versions,
+                latestVersions,
+                statistics,
+                latest.getTags(),
+                TimeUtil.toUTCString(extension.getPublishedDate()),
+                TimeUtil.toUTCString(extension.getPublishedDate()),
+                TimeUtil.toUTCString(extension.getLastUpdatedDate()),
+                latest.getCategories(),
+                latest.isPreview() ? FLAG_PREVIEW : ""
+        );
+    }
+
+    private List<ExtensionQueryResult.Statistic> getQueryExtensionStatistics(Extension extension) {
+        var statistics = new ArrayList<ExtensionQueryResult.Statistic>();
+        var installStat = new ExtensionQueryResult.Statistic(STAT_INSTALL, extension.getDownloadCount());
+        statistics.add(installStat);
+        if (extension.getAverageRating() != null) {
+            var avgRatingStat = new ExtensionQueryResult.Statistic(STAT_AVERAGE_RATING, extension.getAverageRating());
+            statistics.add(avgRatingStat);
+        }
+        var ratingCountStat = new ExtensionQueryResult.Statistic(
+                STAT_RATING_COUNT,
+                Optional.ofNullable(extension.getReviewCount()).orElse(0L)
+        );
+        statistics.add(ratingCountStat);
+
+        return statistics;
+    }
+
+    private ExtensionQueryExtensionData.ExtensionVersion toQueryVersion(
+            ExtensionVersion extVer,
+            Map<Long, List<FileResource>> fileResources
+    ) {
+        var serverUrl = UrlUtil.getBaseUrl();
+        var namespaceName = extVer.getExtension().getNamespace().getName();
+        var extensionName = extVer.getExtension().getName();
+        var assetUri =  UrlUtil.createApiUrl(serverUrl, "vscode", "asset", namespaceName, extensionName, extVer.getVersion());
+
+        var properties = new ArrayList<ExtensionQueryResult.Property>();
+        addQueryExtensionVersionProperty(properties, PROP_BRANDING_COLOR, extVer.getGalleryColor());
+        addQueryExtensionVersionProperty(properties, PROP_BRANDING_THEME, extVer.getGalleryTheme());
+        addQueryExtensionVersionProperty(properties, PROP_REPOSITORY, extVer.getRepository());
+        addQueryExtensionVersionProperty(properties, PROP_SPONSOR_LINK, extVer.getSponsorLink());
+        addQueryExtensionVersionProperty(properties, PROP_ENGINE, getVscodeEngine(extVer));
+        var dependencies = String.join(",", extVer.getDependencies());
+        addQueryExtensionVersionProperty(properties, PROP_DEPENDENCY, dependencies);
+        var bundledExtensions = String.join(",", extVer.getBundledExtensions());
+        addQueryExtensionVersionProperty(properties, PROP_EXTENSION_PACK, bundledExtensions);
+        var localizedLanguages = String.join(",", extVer.getLocalizedLanguages());
+        addQueryExtensionVersionProperty(properties, PROP_LOCALIZED_LANGUAGES, localizedLanguages);
+        if (extVer.isPreRelease()) {
+            addQueryExtensionVersionProperty(properties, PROP_PRE_RELEASE, "true");
+        }
+        if (isWebExtension(extVer)) {
+            addQueryExtensionVersionProperty(properties, PROP_WEB_EXTENSION, "true");
+        }
+
+        List<ExtensionQueryResult.ExtensionFile> files = null;
+        var resourcesByType = fileResources.get(extVer.getId()).stream()
+                .collect(Collectors.groupingBy(FileResource::getType));
+
+        var fileBaseUrl = UrlUtil.createApiFileBaseUrl(serverUrl, namespaceName, extensionName, extVer.getTargetPlatform(), extVer.getVersion());
+
+        files = Lists.newArrayList();
+        addQueryExtensionVersionFile(files, FILE_MANIFEST, createFileUrl(resourcesByType.get(MANIFEST), fileBaseUrl));
+        addQueryExtensionVersionFile(files, FILE_DETAILS, createFileUrl(resourcesByType.get(README), fileBaseUrl));
+        addQueryExtensionVersionFile(files, FILE_LICENSE, createFileUrl(resourcesByType.get(LICENSE), fileBaseUrl));
+        addQueryExtensionVersionFile(files, FILE_ICON, createFileUrl(resourcesByType.get(ICON), fileBaseUrl));
+        addQueryExtensionVersionFile(files, FILE_VSIX, createFileUrl(resourcesByType.get(DOWNLOAD), fileBaseUrl));
+        addQueryExtensionVersionFile(files, FILE_CHANGELOG, createFileUrl(resourcesByType.get(CHANGELOG), fileBaseUrl));
+        addQueryExtensionVersionFile(files, FILE_VSIXMANIFEST, createFileUrl(resourcesByType.get(VSIXMANIFEST), fileBaseUrl));
+        addQueryExtensionVersionFile(files, FILE_SIGNATURE, createFileUrl(resourcesByType.get(DOWNLOAD_SIG), fileBaseUrl));
+        if(resourcesByType.containsKey(DOWNLOAD_SIG)) {
+            addQueryExtensionVersionFile(files, FILE_PUBLIC_KEY, UrlUtil.getPublicKeyUrl(extVer));
+        }
+
+        return new ExtensionQueryExtensionData.ExtensionVersion(
+                extVer.getId(),
+                new ExtensionQueryResult.ExtensionVersion(
+                    extVer.getVersion(),
+                    TimeUtil.toUTCString(extVer.getTimestamp()),
+                    assetUri,
+                    assetUri,
+                    files,
+                    properties,
+                    extVer.getTargetPlatform()
+                )
+        );
+    }
+
+    public void addQueryExtensionVersionFile(List<ExtensionQueryResult.ExtensionFile> files, String assetType, String source) {
+        if (source != null) {
+            files.add(new ExtensionQueryResult.ExtensionFile(assetType, source));
+        }
+    }
+
+    public void addQueryExtensionVersionProperty(List<ExtensionQueryResult.Property> properties, String key, String value) {
+        if (value != null) {
+            properties.add(new ExtensionQueryResult.Property(key, value));
+        }
     }
 
     private String createFileUrl(List<FileResource> singleResource, String fileBaseUrl) {
@@ -241,37 +404,18 @@ public class LocalVSCodeService implements IVSCodeService {
         return resource != null ? UrlUtil.createApiFileUrl(fileBaseUrl, resource.getName()) : null;
     }
 
-    public ExtensionQueryResult toQueryResult(List<ExtensionQueryResult.Extension> extensions) {
-        return toQueryResult(extensions, extensions.size());
+    private String getVscodeEngine(ExtensionVersion extVer) {
+        if (extVer.getEngines() == null)
+            return null;
+        return extVer.getEngines().stream()
+                .filter(engine -> engine.startsWith("vscode@"))
+                .findFirst()
+                .map(engine -> engine.substring("vscode@".length()))
+                .orElse(null);
     }
 
-    public ExtensionQueryResult toQueryResult(List<ExtensionQueryResult.Extension> extensions, long totalCount) {
-        var countMetadataItem = new ExtensionQueryResult.ResultMetadataItem("TotalCount", totalCount);
-        var countMetadata = new ExtensionQueryResult.ResultMetadata("ResultCount", List.of(countMetadataItem));
-        var resultItem = new ExtensionQueryResult.ResultItem(extensions, List.of(countMetadata));
-        return new ExtensionQueryResult(List.of(resultItem));
-    }
-
-    private String getSortBy(int sortBy) {
-        switch (sortBy) {
-            case 4: // InstallCount
-                return "downloadCount";
-            case 5: // PublishedDate
-                return "timestamp";
-            case 6: // AverageRating
-                return "averageRating";
-            default:
-                return "relevance";
-        }
-    }
-
-    private String getSortOrder(int sortOrder) {
-        switch (sortOrder) {
-            case 1: // Ascending
-                return "asc";
-            default:
-                return "desc";
-        }
+    private boolean isWebExtension(ExtensionVersion extVer) {
+        return extVer.getExtensionKind() != null && extVer.getExtensionKind().contains("web");
     }
 
     @Observed
@@ -403,149 +547,5 @@ public class LocalVSCodeService implements IVSCodeService {
 
         var file = getWebResource(namespaceName, extensionName, null, version, path, true);
         return storageUtil.getFileResponse(file);
-    }
-
-    private ExtensionQueryResult.Extension toQueryExtension(Extension extension, ExtensionVersion latest, List<ExtensionQueryResult.ExtensionVersion> versions, int flags) {
-        var statistics = getQueryExtensionStatistics(extension, flags);
-        var namespace = extension.getNamespace();
-        var publisher = new ExtensionQueryResult.Publisher(
-                !StringUtils.isEmpty(namespace.getDisplayName()) ? namespace.getDisplayName() : namespace.getName(),
-                namespace.getPublicId(),
-                namespace.getName(),
-                null,
-                null
-        );
-
-        return new ExtensionQueryResult.Extension(
-                extension.getPublicId(),
-                extension.getName(),
-                latest.getDisplayName(),
-                latest.getDescription(),
-                publisher,
-                versions,
-                statistics,
-                latest.getTags(),
-                TimeUtil.toUTCString(extension.getPublishedDate()),
-                TimeUtil.toUTCString(extension.getPublishedDate()),
-                TimeUtil.toUTCString(extension.getLastUpdatedDate()),
-                latest.getCategories(),
-                latest.isPreview() ? FLAG_PREVIEW : ""
-        );
-    }
-
-    private List<ExtensionQueryResult.Statistic> getQueryExtensionStatistics(Extension extension, int flags) {
-        var statistics = new ArrayList<ExtensionQueryResult.Statistic>();
-        if (test(flags, FLAG_INCLUDE_STATISTICS)) {
-            var installStat = new ExtensionQueryResult.Statistic(STAT_INSTALL, extension.getDownloadCount());
-            statistics.add(installStat);
-            if (extension.getAverageRating() != null) {
-                var avgRatingStat = new ExtensionQueryResult.Statistic(STAT_AVERAGE_RATING, extension.getAverageRating());
-                statistics.add(avgRatingStat);
-            }
-            var ratingCountStat = new ExtensionQueryResult.Statistic(
-                    STAT_RATING_COUNT,
-                    Optional.ofNullable(extension.getReviewCount()).orElse(0L)
-            );
-            statistics.add(ratingCountStat);
-        }
-        return statistics;
-    }
-
-    private ExtensionQueryResult.ExtensionVersion toQueryVersion(
-            ExtensionVersion extVer,
-            Map<Long, List<FileResource>> fileResources,
-            int flags
-    ) {
-        var serverUrl = UrlUtil.getBaseUrl();
-        var namespaceName = extVer.getExtension().getNamespace().getName();
-        var extensionName = extVer.getExtension().getName();
-
-        String assetUri = null;
-        if (test(flags, FLAG_INCLUDE_ASSET_URI)) {
-            assetUri = UrlUtil.createApiUrl(serverUrl, "vscode", "asset", namespaceName, extensionName, extVer.getVersion());
-        }
-
-        List<ExtensionQueryResult.Property> properties = null;
-        if (test(flags, FLAG_INCLUDE_VERSION_PROPERTIES)) {
-            properties = Lists.newArrayList();
-            addQueryExtensionVersionProperty(properties, PROP_BRANDING_COLOR, extVer.getGalleryColor());
-            addQueryExtensionVersionProperty(properties, PROP_BRANDING_THEME, extVer.getGalleryTheme());
-            addQueryExtensionVersionProperty(properties, PROP_REPOSITORY, extVer.getRepository());
-            addQueryExtensionVersionProperty(properties, PROP_SPONSOR_LINK, extVer.getSponsorLink());
-            addQueryExtensionVersionProperty(properties, PROP_ENGINE, getVscodeEngine(extVer));
-            var dependencies = String.join(",", extVer.getDependencies());
-            addQueryExtensionVersionProperty(properties, PROP_DEPENDENCY, dependencies);
-            var bundledExtensions = String.join(",", extVer.getBundledExtensions());
-            addQueryExtensionVersionProperty(properties, PROP_EXTENSION_PACK, bundledExtensions);
-            var localizedLanguages = String.join(",", extVer.getLocalizedLanguages());
-            addQueryExtensionVersionProperty(properties, PROP_LOCALIZED_LANGUAGES, localizedLanguages);
-            if (extVer.isPreRelease()) {
-                addQueryExtensionVersionProperty(properties, PROP_PRE_RELEASE, "true");
-            }
-            if (isWebExtension(extVer)) {
-                addQueryExtensionVersionProperty(properties, PROP_WEB_EXTENSION, "true");
-            }
-        }
-
-        List<ExtensionQueryResult.ExtensionFile> files = null;
-        if(fileResources.containsKey(extVer.getId())) {
-            var resourcesByType = fileResources.get(extVer.getId()).stream()
-                    .collect(Collectors.groupingBy(FileResource::getType));
-
-            var fileBaseUrl = UrlUtil.createApiFileBaseUrl(serverUrl, namespaceName, extensionName, extVer.getTargetPlatform(), extVer.getVersion());
-
-            files = Lists.newArrayList();
-            addQueryExtensionVersionFile(files, FILE_MANIFEST, createFileUrl(resourcesByType.get(MANIFEST), fileBaseUrl));
-            addQueryExtensionVersionFile(files, FILE_DETAILS, createFileUrl(resourcesByType.get(README), fileBaseUrl));
-            addQueryExtensionVersionFile(files, FILE_LICENSE, createFileUrl(resourcesByType.get(LICENSE), fileBaseUrl));
-            addQueryExtensionVersionFile(files, FILE_ICON, createFileUrl(resourcesByType.get(ICON), fileBaseUrl));
-            addQueryExtensionVersionFile(files, FILE_VSIX, createFileUrl(resourcesByType.get(DOWNLOAD), fileBaseUrl));
-            addQueryExtensionVersionFile(files, FILE_CHANGELOG, createFileUrl(resourcesByType.get(CHANGELOG), fileBaseUrl));
-            addQueryExtensionVersionFile(files, FILE_VSIXMANIFEST, createFileUrl(resourcesByType.get(VSIXMANIFEST), fileBaseUrl));
-            addQueryExtensionVersionFile(files, FILE_SIGNATURE, createFileUrl(resourcesByType.get(DOWNLOAD_SIG), fileBaseUrl));
-            if(resourcesByType.containsKey(DOWNLOAD_SIG)) {
-                addQueryExtensionVersionFile(files, FILE_PUBLIC_KEY, UrlUtil.getPublicKeyUrl(extVer));
-            }
-        }
-
-        return new ExtensionQueryResult.ExtensionVersion(
-                extVer.getVersion(),
-                TimeUtil.toUTCString(extVer.getTimestamp()),
-                assetUri,
-                assetUri,
-                files,
-                properties,
-                extVer.getTargetPlatform()
-        );
-    }
-
-    public void addQueryExtensionVersionFile(List<ExtensionQueryResult.ExtensionFile> files, String assetType, String source) {
-        if (source != null) {
-            files.add(new ExtensionQueryResult.ExtensionFile(assetType, source));
-        }
-    }
-
-    public void addQueryExtensionVersionProperty(List<ExtensionQueryResult.Property> properties, String key, String value) {
-        if (value != null) {
-            properties.add(new ExtensionQueryResult.Property(key, value));
-        }
-    }
-
-    private String getVscodeEngine(ExtensionVersion extVer) {
-        if (extVer.getEngines() == null)
-            return null;
-        return extVer.getEngines().stream()
-                .filter(engine -> engine.startsWith("vscode@"))
-                .findFirst()
-                .map(engine -> engine.substring("vscode@".length()))
-                .orElse(null);
-    }
-
-    private boolean isWebExtension(ExtensionVersion extVer) {
-        return extVer.getExtensionKind() != null && extVer.getExtensionKind().contains("web");
-    }
-
-    private boolean test(int flags, int flag) {
-        return (flags & flag) != 0;
     }
 }
