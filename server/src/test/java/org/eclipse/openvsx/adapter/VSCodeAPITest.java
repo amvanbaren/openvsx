@@ -629,6 +629,7 @@ class VSCodeAPITest {
         var builtInExtensionNamespace = "vscode";
         var entry1 = new ExtensionSearch();
         entry1.setId(1);
+        entry1.setExtensionId("redhat.vscode-yaml");
         List<SearchHit<ExtensionSearch>> searchResults = !builtInExtensionNamespace.equals(namespaceName)
                 ? Collections.singletonList(new SearchHit<>("0", "1", null, 1.0f, null, null, null, null, null, null, entry1))
                 : Collections.emptyList();

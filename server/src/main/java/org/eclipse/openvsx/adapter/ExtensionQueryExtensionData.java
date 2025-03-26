@@ -60,7 +60,7 @@ public record ExtensionQueryExtensionData(
 
         var stats = test(flags, FLAG_INCLUDE_STATISTICS) ? statistics : Collections.<ExtensionQueryResult.Statistic>emptyList();
         return new ExtensionQueryResult.Extension(
-                extensionId,
+                publicId,
                 extensionName,
                 displayName,
                 shortDescription,

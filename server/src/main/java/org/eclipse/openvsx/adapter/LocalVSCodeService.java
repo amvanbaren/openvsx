@@ -229,7 +229,7 @@ public class LocalVSCodeService implements IVSCodeService {
             results = searchHits.stream().map(ExtensionSearch::getExtensionId).map(dataMap::get).toList();
         }
 
-        var extensionQueryResults = results.stream().map(d -> d.toJson(param.flags())).toList();
+        var extensionQueryResults = results.stream().filter(Objects::nonNull).map(d -> d.toJson(param.flags())).toList();
         return toQueryResult(extensionQueryResults, totalCount);
     }
 
