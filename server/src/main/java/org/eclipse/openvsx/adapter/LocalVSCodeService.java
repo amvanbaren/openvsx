@@ -37,7 +37,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.eclipse.openvsx.adapter.ExtensionQueryParam.Criterion.*;
 import static org.eclipse.openvsx.adapter.ExtensionQueryResult.Extension.FLAG_PREVIEW;
@@ -136,36 +138,28 @@ public class LocalVSCodeService implements IVSCodeService {
             }
         }
 
-        // GET FROM CACHE
-        var data = new ArrayList<ExtensionQueryExtensionData>();
-        if (!extensionIds.isEmpty()) {
-            data.addAll(cache.getExtensionQueryExtensionDataByPublicId(extensionIds));
-            for(var d : data) {
-                logger.info("EXTQUERY GET: {}", d.extensionId());
-            }
-            data.stream().map(ExtensionQueryExtensionData::publicId).toList().forEach(extensionIds::remove);
-        } else if (!extensionNames.isEmpty()) {
-            data.addAll(cache.getExtensionQueryExtensionDataByExtensionId(extensionNames));
-            for(var d : data) {
-                logger.info("EXTQUERY GET: {}", d.extensionId());
-            }
-            data.stream().map(ExtensionQueryExtensionData::extensionId).toList().forEach(extensionNames::remove);
-        } else if (!searchHits.isEmpty()) {
-            var searchIds = searchHits.stream().map(ExtensionSearch::getExtensionId).collect(Collectors.toSet());
-            data.addAll(cache.getExtensionQueryExtensionDataByExtensionId(searchIds));
-            for(var d : data) {
-                logger.info("EXTQUERY GET: {}", d.extensionId());
-            }
-            var foundSearchIds = data.stream().map(ExtensionQueryExtensionData::extensionId).toList();
-            searchHits = searchHits.stream().filter(hit -> !foundSearchIds.contains(hit.getExtensionId())).toList();
-        }
-
-        // COMPUTE MISSING DATA
+        var usePublicIdAsKey = false;
+        var data = new HashMap<String,ExtensionQueryExtensionData>();
         var extensionsList = Collections.<Extension>emptyList();
         if (!extensionIds.isEmpty()) {
-            extensionsList = repositories.findActiveExtensionsByPublicId(extensionIds, BuiltInExtensionUtil.getBuiltInNamespace());
+            usePublicIdAsKey = true;
+            var cachedData = cache.getExtensionQueryExtensionDataByPublicId(extensionIds);
+            data.putAll(cachedData);
+            for(var d : data.keySet()) {
+                logger.info("EXTQUERY GET: {}", d);
+            }
+
+            var remainingExtensionIds = extensionIds.stream().filter(id -> !cachedData.containsKey(id)).toList();
+            extensionsList = repositories.findActiveExtensionsByPublicId(remainingExtensionIds, BuiltInExtensionUtil.getBuiltInNamespace());
         } else if (!extensionNames.isEmpty()) {
+            var cachedData = cache.getExtensionQueryExtensionDataByExtensionId(extensionNames);
+            data.putAll(cachedData);
+            for(var d : data.keySet()) {
+                logger.info("EXTQUERY GET: {}", d);
+            }
+
             extensionsList = extensionNames.stream()
+                    .filter(name -> !cachedData.containsKey(name))
                     .map(NamingUtil::fromExtensionId)
                     .filter(Objects::nonNull)
                     .filter(extensionId -> !BuiltInExtensionUtil.isBuiltIn(extensionId.namespace()))
@@ -173,7 +167,15 @@ public class LocalVSCodeService implements IVSCodeService {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
         } else if (!searchHits.isEmpty()) {
+            var searchIds = searchHits.stream().map(ExtensionSearch::getExtensionId).collect(Collectors.toSet());
+            var cachedData = cache.getExtensionQueryExtensionDataByExtensionId(searchIds);
+            data.putAll(cachedData);
+            for(var d : data.keySet()) {
+                logger.info("EXTQUERY GET: {}", d);
+            }
+
             var ids = searchHits.stream()
+                    .filter(hit -> !cachedData.containsKey(hit.getExtensionId()))
                     .map(ExtensionSearch::getId)
                     .collect(Collectors.toList());
 
@@ -215,6 +217,7 @@ public class LocalVSCodeService implements IVSCodeService {
                 .map(list -> versions.getLatest(list, false))
                 .collect(Collectors.toMap(ev -> ev.getExtension().getId(), ev -> ev));
 
+        Function<ExtensionQueryExtensionData, String> keyMapper = usePublicIdAsKey ? ExtensionQueryExtensionData::publicId : ExtensionQueryExtensionData::extensionId;
         for(var extension : extensionsList) {
             var latest = latestVersions.get(extension.getId());
             var queryVersions = extensionVersionsMap.getOrDefault(extension.getId(), Collections.emptyList()).stream()
@@ -225,22 +228,26 @@ public class LocalVSCodeService implements IVSCodeService {
             var queryExt = toQueryExtension(extension, latest, queryVersions, latestQueryVersions);
             logger.info("EXTQUERY PUT: {}", queryExt.extensionId());
             cache.putExtensionQueryExtensionData(queryExt);
-            data.add(queryExt);
+            data.put(keyMapper.apply(queryExt), queryExt);
         }
 
-        var results = Collections.<ExtensionQueryExtensionData>emptyList();
+        Stream<String> resultStream;
         if (!extensionIds.isEmpty()) {
-            var dataMap = data.stream().collect(Collectors.toMap(ExtensionQueryExtensionData::publicId, d -> d));
-            results = extensionIds.stream().map(dataMap::get).toList();
+            resultStream = extensionIds.stream();
         } else if (!extensionNames.isEmpty()) {
-            var dataMap = data.stream().collect(Collectors.toMap(ExtensionQueryExtensionData::extensionId, d -> d));
-            results = extensionNames.stream().map(dataMap::get).toList();
+            resultStream = extensionNames.stream();
         } else if (!searchHits.isEmpty()) {
-            var dataMap = data.stream().collect(Collectors.toMap(ExtensionQueryExtensionData::extensionId, d -> d));
-            results = searchHits.stream().map(ExtensionSearch::getExtensionId).map(dataMap::get).toList();
+            resultStream = searchHits.stream().map(ExtensionSearch::getExtensionId);
+        } else {
+            resultStream = Stream.empty();
         }
 
-        var extensionQueryResults = results.stream().filter(Objects::nonNull).map(d -> d.toJson(param.flags())).toList();
+        var extensionQueryResults = resultStream
+                .map(data::get)
+                .filter(Objects::nonNull)
+                .map(d -> d.toJson(param.flags()))
+                .toList();
+
         return toQueryResult(extensionQueryResults, totalCount);
     }
 

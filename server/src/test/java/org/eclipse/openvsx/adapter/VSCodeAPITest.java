@@ -649,7 +649,7 @@ class VSCodeAPITest {
         Mockito.when(repositories.findActiveExtensionsById(List.of(entry1.getId())))
                 .thenReturn(results);
 
-        var publicIds = Set.of(extension.getPublicId());
+        var publicIds = List.of(extension.getPublicId());
         Mockito.when(repositories.findActiveExtensionsByPublicId(publicIds, builtInExtensionNamespace))
                 .thenReturn(results);
 

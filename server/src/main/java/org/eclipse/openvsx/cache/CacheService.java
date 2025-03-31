@@ -21,6 +21,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
@@ -194,11 +195,11 @@ public class CacheService {
         cache.evict(filesCacheKeyGenerator.generate(namespaceName, extensionName, targetPlatform, version, path));
     }
 
-    public List<ExtensionQueryExtensionData> getExtensionQueryExtensionDataByPublicId(Set<String> publicIds) {
+    public Map<String, ExtensionQueryExtensionData> getExtensionQueryExtensionDataByPublicId(Set<String> publicIds) {
         var cache = cacheManager.getCache(CACHE_EXTENSIONQUERY_EXTENSION_IDS);
         if(cache == null) {
             logger.info("[GET] CACHE {} does not exist", CACHE_EXTENSIONQUERY_EXTENSION_IDS);
-            return Collections.emptyList();
+            return Collections.emptyMap();
         }
 
         var extensionIds = publicIds.stream()
@@ -206,14 +207,18 @@ public class CacheService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        return getExtensionQueryExtensionDataByExtensionId(extensionIds);
+        return getExtensionQueryExtensionDataByExtensionId(extensionIds, ExtensionQueryExtensionData::publicId);
     }
 
-    public List<ExtensionQueryExtensionData> getExtensionQueryExtensionDataByExtensionId(Set<String> extensionIds) {
+    public Map<String, ExtensionQueryExtensionData> getExtensionQueryExtensionDataByExtensionId(Set<String> extensionIds) {
+        return getExtensionQueryExtensionDataByExtensionId(extensionIds, ExtensionQueryExtensionData::extensionId);
+    }
+
+    private Map<String, ExtensionQueryExtensionData> getExtensionQueryExtensionDataByExtensionId(Set<String> extensionIds, Function<ExtensionQueryExtensionData, String> keyMapper) {
         var cache = cacheManager.getCache(CACHE_EXTENSIONQUERY_RESULTS);
         if(cache == null) {
             logger.info("[GET] CACHE {} does not exist", CACHE_EXTENSIONQUERY_RESULTS);
-            return Collections.emptyList();
+            return Collections.emptyMap();
         }
 
         return extensionIds.stream()
@@ -222,7 +227,7 @@ public class CacheService {
                     return cache.get(extensionId, ExtensionQueryExtensionData.class);
                 })
                 .filter(Objects::nonNull)
-                .toList();
+                .collect(Collectors.toMap(keyMapper, d -> d));
     }
 
     public void putExtensionQueryExtensionData(ExtensionQueryExtensionData data) {
