@@ -11,6 +11,7 @@ package org.eclipse.openvsx.adapter;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.io.Serializable;
 import java.util.List;
 
 import static org.eclipse.openvsx.util.TargetPlatform.*;
@@ -58,7 +59,7 @@ public record ExtensionQueryResult(List<ResultItem> results) {
             String domain,
             @Schema(description = "Whether the publisher's web domain is verified, not implemented", allowableValues = {"null"})
             Boolean isDomainVerified
-    ) {}
+    ) implements Serializable {}
 
     public record ExtensionVersion(
             String version,
@@ -78,7 +79,7 @@ public record ExtensionQueryResult(List<ResultItem> results) {
                     NAME_WEB, NAME_UNIVERSAL
             })
             String targetPlatform
-    ) {}
+    ) implements Serializable {}
 
     public record ExtensionFile(
             @Schema(
@@ -98,7 +99,7 @@ public record ExtensionQueryResult(List<ResultItem> results) {
             String assetType,
             @Schema(description = "URL to get the extension file")
             String source
-    ) {
+    ) implements Serializable {
         public static final String FILE_ICON = "Microsoft.VisualStudio.Services.Icons.Default";
         public static final String FILE_DETAILS = "Microsoft.VisualStudio.Services.Content.Details";
         public static final String FILE_CHANGELOG = "Microsoft.VisualStudio.Services.Content.Changelog";
@@ -130,7 +131,7 @@ public record ExtensionQueryResult(List<ResultItem> results) {
             String key,
             @Schema(description = "Value of the property")
             String value
-    ) {
+    ) implements Serializable {
         public static final String PROP_REPOSITORY = "Microsoft.VisualStudio.Services.Links.Source";
         public static final String PROP_SPONSOR_LINK = "Microsoft.VisualStudio.Code.SponsorLink";
         public static final String PROP_DEPENDENCY = "Microsoft.VisualStudio.Code.ExtensionDependencies";
@@ -148,7 +149,7 @@ public record ExtensionQueryResult(List<ResultItem> results) {
             String statisticName,
             @Schema(description = "Value of the statistic")
             double value
-    ) {
+    ) implements Serializable {
         public static final String STAT_INSTALL = "install";
         public static final String STAT_AVERAGE_RATING = "averagerating";
         public static final String STAT_RATING_COUNT = "ratingcount";

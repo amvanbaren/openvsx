@@ -9,6 +9,7 @@
  * ****************************************************************************** */
 package org.eclipse.openvsx.adapter;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
 
@@ -30,9 +31,9 @@ public record ExtensionQueryExtensionData(
         String lastUpdated,
         List<String> categories,
         String flags
-) {
+) implements Serializable {
 
-    public record ExtensionVersion(long id, ExtensionQueryResult.ExtensionVersion data){
+    public record ExtensionVersion(long id, ExtensionQueryResult.ExtensionVersion data) implements Serializable {
         public ExtensionQueryResult.ExtensionVersion toJson(int flags) {
             var files = test(flags, FLAG_INCLUDE_FILES) ? data.files() : null;
             var assetUri = test(flags, FLAG_INCLUDE_ASSET_URI) ? data.assetUri() : null;
