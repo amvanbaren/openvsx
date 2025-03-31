@@ -13,6 +13,7 @@ import io.micrometer.observation.annotation.Observed;
 import org.eclipse.openvsx.adapter.ExtensionQueryExtensionData;
 import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.repositories.RepositoryService;
+import org.eclipse.openvsx.util.NamingUtil;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.eclipse.openvsx.util.VersionAlias;
 import org.slf4j.Logger;
@@ -244,5 +245,33 @@ public class CacheService {
             return;
         }
         cache.put(data.publicId(), data.extensionId());
+    }
+
+    public void evictExtensionQueryExtensionData(Namespace namespace) {
+        evictExtensionQueryExtensionData(namespace.getExtensions());
+    }
+
+    public void evictExtensionQueryExtensionData(List<Extension> extensions) {
+        var resultsCache = cacheManager.getCache(CACHE_EXTENSIONQUERY_RESULTS);
+        var mappingCache = cacheManager.getCache(CACHE_EXTENSIONQUERY_EXTENSION_IDS);
+        extensions.forEach(e -> {
+            if(resultsCache != null) {
+                resultsCache.evictIfPresent(NamingUtil.toExtensionId(e));
+            }
+            if(mappingCache != null) {
+                mappingCache.evictIfPresent(e.getPublicId());
+            }
+        });
+    }
+
+    public void evictExtensionQueryExtensionData(Extension extension) {
+        var resultsCache = cacheManager.getCache(CACHE_EXTENSIONQUERY_RESULTS);
+        var mappingCache = cacheManager.getCache(CACHE_EXTENSIONQUERY_EXTENSION_IDS);
+        if(resultsCache != null) {
+            resultsCache.evictIfPresent(NamingUtil.toExtensionId(extension));
+        }
+        if(mappingCache != null) {
+            mappingCache.evictIfPresent(extension.getPublicId());
+        }
     }
 }

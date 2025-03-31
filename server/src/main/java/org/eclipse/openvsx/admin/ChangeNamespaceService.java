@@ -74,7 +74,9 @@ public class ChangeNamespaceService {
 
         cache.evictSitemap();
         cache.evictNamespaceDetails(oldNamespace);
-        search.updateSearchEntries(extensions.toList());
+        var extensionList = extensions.toList();
+        search.updateSearchEntries(extensionList);
+        cache.evictExtensionQueryExtensionData(extensionList);
     }
 
     private void changeExtensionNamespace(Streamable<Extension> extensions, Namespace newNamespace) {
