@@ -81,6 +81,7 @@ public class LocalVSCodeService implements IVSCodeService {
 
     @Override
     public ExtensionQueryResult extensionQuery(ExtensionQueryParam param, int defaultPageSize) {
+        logger.info("EXTQUERY RECEIVED");
         String targetPlatform;
         String queryString = null;
         String category = null;
