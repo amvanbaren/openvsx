@@ -15,6 +15,8 @@ import org.eclipse.openvsx.entities.*;
 import org.eclipse.openvsx.repositories.RepositoryService;
 import org.eclipse.openvsx.util.TargetPlatform;
 import org.eclipse.openvsx.util.VersionAlias;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
 
@@ -39,6 +41,8 @@ public class CacheService {
     public static final String GENERATOR_EXTENSION_JSON = "extensionJsonCacheKeyGenerator";
     public static final String GENERATOR_LATEST_EXTENSION_VERSION = "latestExtensionVersionCacheKeyGenerator";
     public static final String GENERATOR_FILES = "filesCacheKeyGenerator";
+
+    protected final Logger logger = LoggerFactory.getLogger(CacheService.class);
 
     private final CacheManager cacheManager;
     private final RepositoryService repositories;
@@ -193,6 +197,7 @@ public class CacheService {
     public List<ExtensionQueryExtensionData> getExtensionQueryExtensionDataByPublicId(Set<String> publicIds) {
         var cache = cacheManager.getCache(CACHE_EXTENSIONQUERY_EXTENSION_IDS);
         if(cache == null) {
+            logger.info("[GET] CACHE {} does not exist", CACHE_EXTENSIONQUERY_EXTENSION_IDS);
             return Collections.emptyList();
         }
 
@@ -207,11 +212,15 @@ public class CacheService {
     public List<ExtensionQueryExtensionData> getExtensionQueryExtensionDataByExtensionId(Set<String> extensionIds) {
         var cache = cacheManager.getCache(CACHE_EXTENSIONQUERY_RESULTS);
         if(cache == null) {
+            logger.info("[GET] CACHE {} does not exist", CACHE_EXTENSIONQUERY_RESULTS);
             return Collections.emptyList();
         }
 
         return extensionIds.stream()
-                .map(extensionId -> cache.get(extensionId, ExtensionQueryExtensionData.class))
+                .map(extensionId -> {
+                    logger.info("[GET] CACHE: {}", extensionId);
+                    return cache.get(extensionId, ExtensionQueryExtensionData.class);
+                })
                 .filter(Objects::nonNull)
                 .toList();
     }
@@ -219,12 +228,14 @@ public class CacheService {
     public void putExtensionQueryExtensionData(ExtensionQueryExtensionData data) {
         var cache = cacheManager.getCache(CACHE_EXTENSIONQUERY_RESULTS);
         if(cache == null) {
+            logger.info("[PUT] CACHE {} does not exist", CACHE_EXTENSIONQUERY_RESULTS);
             return;
         }
         cache.put(data.extensionId(), data);
 
         cache = cacheManager.getCache(CACHE_EXTENSIONQUERY_EXTENSION_IDS);
         if(cache == null) {
+            logger.info("[PUT] CACHE {} does not exist", CACHE_EXTENSIONQUERY_EXTENSION_IDS);
             return;
         }
         cache.put(data.publicId(), data.extensionId());
