@@ -139,13 +139,22 @@ public class LocalVSCodeService implements IVSCodeService {
         var data = new ArrayList<ExtensionQueryExtensionData>();
         if (!extensionIds.isEmpty()) {
             data.addAll(cache.getExtensionQueryExtensionDataByPublicId(extensionIds));
+            for(var d : data) {
+                logger.info("EXTQUERY GET: {}", d.extensionId());
+            }
             data.stream().map(ExtensionQueryExtensionData::publicId).toList().forEach(extensionIds::remove);
         } else if (!extensionNames.isEmpty()) {
             data.addAll(cache.getExtensionQueryExtensionDataByExtensionId(extensionNames));
+            for(var d : data) {
+                logger.info("EXTQUERY GET: {}", d.extensionId());
+            }
             data.stream().map(ExtensionQueryExtensionData::extensionId).toList().forEach(extensionNames::remove);
         } else if (!searchHits.isEmpty()) {
             var searchIds = searchHits.stream().map(ExtensionSearch::getExtensionId).collect(Collectors.toSet());
             data.addAll(cache.getExtensionQueryExtensionDataByExtensionId(searchIds));
+            for(var d : data) {
+                logger.info("EXTQUERY GET: {}", d.extensionId());
+            }
             var foundSearchIds = data.stream().map(ExtensionQueryExtensionData::extensionId).toList();
             searchHits = searchHits.stream().filter(hit -> !foundSearchIds.contains(hit.getExtensionId())).toList();
         }
@@ -213,6 +222,7 @@ public class LocalVSCodeService implements IVSCodeService {
 
             var latestQueryVersions = latestExtensionVersionsMap.get(extension.getId());
             var queryExt = toQueryExtension(extension, latest, queryVersions, latestQueryVersions);
+            logger.info("EXTQUERY PUT: {}", queryExt.extensionId());
             cache.putExtensionQueryExtensionData(queryExt);
             data.add(queryExt);
         }
