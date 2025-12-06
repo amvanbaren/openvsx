@@ -142,7 +142,6 @@ export interface NamespaceDetailProps {
     namespace: Namespace;
     filterUsers: (user: UserData) => boolean;
     fixSelf: boolean;
-    setLoadingState: (loading: boolean) => void;
     namespaceAccessUrl?: string;
     theme?: string;
 }

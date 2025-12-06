@@ -143,9 +143,9 @@ bucket4j:
 
 ovsx:
   databasesearch:
-    enabled: false
+    enabled: true # TODO switch back after testing
   elasticsearch:
-    enabled: true
+    enabled: false # TODO switch back after testing
     clear-on-start: true
   redis:
     enabled: false

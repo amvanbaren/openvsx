@@ -16,13 +16,15 @@ import { UserExtensionList } from './user-extension-list';
 import { isError } from '../../extension-registry-types';
 import { DelayedLoadIndicator } from '../../components/delayed-load-indicator';
 import { MainContext } from '../../context';
+import { useGetUserQuery } from '../../store/api';
 
 export const UserSettingsExtensions: FunctionComponent = () => {
 
     const [loading, setLoading] = useState(true);
     const [extensions, setExtensions] = useState(Array<Extension>());
-    const { user, service, handleError } = useContext(MainContext);
+    const { service, handleError } = useContext(MainContext);
     const abortController = useRef<AbortController>(new AbortController());
+    const { data: user } = useGetUserQuery();
 
     useEffect(() => {
         updateExtensions();

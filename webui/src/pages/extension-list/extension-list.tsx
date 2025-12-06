@@ -96,6 +96,7 @@ export const ExtensionList: FunctionComponent<ExtensionListProps> = props => {
             extensionKeys.forEach((key) => newExtensionKeys.add(key));
             const searchResult = result as SearchResult;
             if (enableLoadMore.current && isSameFilter(props.filter, filter)) {
+                // TODO test if this is needed
                 // Check for duplicate keys to avoid problems due to asynchronous user edit / loadMore call
                 for (const ext of searchResult.extensions) {
                     const key = `${ext.namespace}.${ext.name}`;

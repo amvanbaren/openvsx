@@ -8,61 +8,22 @@
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
 
-import React, { ChangeEvent, FunctionComponent, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, TextField, Typography, Grid, Button, IconButton, Slider, Stack, Dialog, DialogActions, DialogTitle,
-    DialogContent, InputAdornment, Select, MenuItem, Paper, SelectChangeEvent } from '@mui/material';
+import React, { ChangeEvent, FunctionComponent, useContext, useMemo, useState } from 'react';
+import { TextField, Typography, Grid, Button, IconButton, InputAdornment, Select, MenuItem, Paper, SelectChangeEvent } from '@mui/material';
 import { CheckCircleOutline } from '@mui/icons-material';
 import BusinessIcon from '@mui/icons-material/Business';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import PersonIcon from '@mui/icons-material/Person';
-import RotateLeftIcon from '@mui/icons-material/RotateLeft';
-import RotateRightIcon from '@mui/icons-material/RotateRight';
 import TwitterIcon from '@mui/icons-material/Twitter';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import CloseIcon from '@mui/icons-material/Close';
 import { MainContext } from '../../context';
 import { DelayedLoadIndicator } from '../../components/delayed-load-indicator';
 import { Namespace, NamespaceDetails, isError } from '../../extension-registry-types';
-import Dropzone from 'react-dropzone';
-import AvatarEditor, { Position } from 'react-avatar-editor';
 import _ from 'lodash';
-import { styled, Theme } from '@mui/material/styles';
-
-const getColor = (isFocused: boolean, isDragAccept: boolean, isDragReject: boolean) => {
-    if (isDragAccept) {
-        return 'success.main';
-    } else if (isDragReject) {
-        return 'error.main';
-    } else if (isFocused) {
-        return 'secondary.main';
-    } else {
-        return 'text.primary';
-    }
-};
-
-const DropzoneDiv = styled('div')(({ theme }: { theme: Theme }) => ({
-    gridRow: 1,
-    gridColumn: 1,
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: theme.spacing(3),
-    borderWidth: 2,
-    borderRadius: 2,
-    borderStyle: 'dashed',
-    backgroundColor: theme.palette.background.default,
-    color: theme.palette.text.primary,
-    outline: 'none',
-    transition: 'border .24s ease-in-out',
-    '&:hover + $avatarButtons': {
-        display: 'flex'
-    }
-}));
+import { styled } from '@mui/material/styles';
+import { useGetNamespaceDetailsQuery, useSetNamespaceDetailsMutation, useSetNamespaceLogoMutation } from '../../store/api';
+import { UserNamespaceDetailsLogo } from './user-namespace-details-logo';
 
 const GridIconItem = styled(Grid)({
     display: 'flex',
@@ -80,41 +41,20 @@ export const UserNamespaceDetails: FunctionComponent<UserNamespaceDetailsProps> 
     const LINKED_IN_PERSONAL = 'in';
     const LINKED_IN_COMPANY = 'company';
 
-    const abortController = useRef<AbortController>(new AbortController());
-    const editor = useRef<AvatarEditor>(null);
-
     const context = useContext(MainContext);
-    const [currentDetails, setCurrentDetails] = useState<NamespaceDetails>();
     const [newDetails, setNewDetails] = useState<NamespaceDetails>();
     const [detailsUpdated, setDetailsUpdated] = useState<boolean>(false);
     const [bannerNamespaceName, setBannerNamespaceName] = useState<string>('');
-    const [loading, setLoading] = useState<boolean>(true);
-    const [dropzoneFile, setDropzoneFile] = useState<File>();
     const [logoPreview, setLogoPreview] = useState<string>();
-    const [editing, setEditing] = useState<boolean>(false);
-    const [editorScale, setEditorScale] = useState<number>(1);
-    const [editorScaleAdjusted, setEditorScaleAdjusted] = useState<number>(1);
-    const [editorRotation, setEditorRotation] = useState<number>(0);
-    const [editorPosition, setEditorPosition] = useState<Position>();
-    const [prevEditorScale, setPrevEditorScale] = useState<number>(1);
-    const [prevEditorRotation, setPrevEditorRotation] = useState<number>(0);
-    const [prevEditorPosition, setPrevEditorPosition] = useState<Position>();
     const [linkedInAccountType, setLinkedInAccountType] = useState<string>(LINKED_IN_PERSONAL);
+    const {data: currentDetails, isLoading} = useGetNamespaceDetailsQuery(props.namespace.name)
+    const [setNamespaceDetails] = useSetNamespaceDetailsMutation()
+    const [setNamespaceLogo] = useSetNamespaceLogoMutation()
 
     const noChanges = useMemo(() => {
         const isFalsy = (x: unknown) => !!x === false;
         return _.isEqual(_.omitBy(currentDetails, isFalsy), _.omitBy(newDetails, isFalsy));
     }, [currentDetails, newDetails]);
-
-    useEffect(() => {
-        getNamespaceDetails();
-        return () => abortController.current.abort();
-    }, []);
-
-    useEffect(() => {
-        setLoading(true);
-        getNamespaceDetails();
-    }, [props.namespace]);
 
     const resetLogoPreview = () => {
         if (logoPreview) {
@@ -194,14 +134,14 @@ export const UserNamespaceDetails: FunctionComponent<UserNamespaceDetailsProps> 
                 ? 'https://twitter.com/' + details.socialLinks.twitter
                 : undefined;
 
-            const result = await context.service.setNamespaceDetails(abortController.current, props.namespace.detailsUrl, details);
+            const result = await setNamespaceDetails({endpoint: props.namespace.detailsUrl, details});
             if (isError(result)) {
                 throw result;
             }
 
             if (logoPreview) {
                 const logoFile = await (await fetch(logoPreview)).blob();
-                await context.service.setNamespaceLogo(abortController.current, props.namespace.detailsUrl, logoFile, details.logo as string);
+                await setNamespaceLogo({endpoint: props.namespace.detailsUrl, name: props.namespace.name, logoFile, logoName: details.logo as string});
                 await getNamespaceDetails();
             } else {
                 setCurrentDetails(copy(newDetails));
@@ -279,167 +219,14 @@ export const UserNamespaceDetails: FunctionComponent<UserNamespaceDetailsProps> 
 
     const handleSelectChange = (event: SelectChangeEvent<string>) => setLinkedInAccountType(event.target.value);
 
-    const handleDrop = <T extends File>(acceptedFiles: T[]) => {
-        const file = acceptedFiles[0];
-        if (file.type !== 'image/png' && file.type != 'image/jpeg') {
-            context.handleError(new Error(`Unsupported file type '${file.type}'`));
-            return;
-        }
-
-        setDropzoneFile(file);
-        setEditing(true);
-        setEditorScale(1);
-        setEditorScaleAdjusted(1);
-        setEditorRotation(0);
-        setEditorPosition(undefined);
-    };
-
-    const handleFileDialogOpen = () => {
-        setDropzoneFile(undefined);
-        resetLogoPreview();
-    };
-
-    const rotateLeft = () => setEditorRotation(editorRotation - 90);
-    const rotateRight = () => setEditorRotation(editorRotation + 90);
-
-    const handleEditorScaleChange = (event: Event, value: number | number[]) => {
-        setEditorScale((typeof value === 'number') ? value : value[0]);
-        setEditorScaleAdjusted(adjustScale(editorScale));
-    };
-
-    const handleCancelEditLogo = () => {
-        setEditorScale(prevEditorScale);
-        setEditorScaleAdjusted(adjustScale(prevEditorScale));
-        setEditorRotation(prevEditorRotation);
-        setEditorPosition(prevEditorPosition);
-        setEditing(false);
-    };
-
-    const handleApplyLogo = () => {
-        const avatarEditor = editor.current as AvatarEditor;
-        const canvasScaled = avatarEditor.getImageScaledToCanvas();
-        canvasScaled.toBlob(async (blob) => {
-            if (blob) {
-                if (logoPreview) {
-                    URL.revokeObjectURL(logoPreview);
-                }
-                setLogoPreview(URL.createObjectURL(blob));
-
-                if (newDetails) {
-                    const details = copy(newDetails);
-                    details.logo = dropzoneFile!.name;
-                    setNewDetails(details);
-                }
-            }
-        });
-        setEditing(false);
-    };
-
-    const adjustScale = (x: number) => {
-        return x < 1 ? (0.5 + (x / 2)) : x;
-    };
-
-    const percentageLabelFormat = (value: number) => {
-        return `${Math.round(value * 100)}%`;
-    };
-
-    const deleteLogo = () => {
-        resetLogoPreview();
-        if (newDetails) {
-            const details = copy(newDetails);
-            details.logo = undefined;
-            setNewDetails(details);
-        }
-    };
-
-    const editLogo = () => {
-        setPrevEditorScale(editorScale);
-        setPrevEditorRotation(editorRotation);
-        setPrevEditorPosition(editorPosition);
-        setEditing(true);
-    };
-
-    const handleEditorPositionChange = (editorPosition: Position) => setEditorPosition(editorPosition);
-
-    const isDropzoneDisabled = (): boolean => {
-        return logoPreview !== undefined || (newDetails !== undefined && newDetails.logo !== undefined);
-    };
-
     const handleClose = () => setDetailsUpdated(false);
 
     if (!newDetails) {
-        return <DelayedLoadIndicator loading={loading} />;
+        return <DelayedLoadIndicator loading={isLoading} />;
     }
 
     const successColor = context.pageSettings.themeType === 'dark' ? '#fff' : '#000';
     return <>
-        <Dialog
-            open={editing}
-            onClose={() => setEditing(false)} >
-            <DialogTitle >
-                Edit namespace logo
-            </DialogTitle>
-            <DialogContent sx={{ overflowY: 'unset' }}>
-                <Grid container spacing={2}>
-                    <Grid item xs={12} sx={{ display: 'flex' }}>
-                        <AvatarEditor
-                            style={{ margin: '0 auto' }}
-                            ref={editor}
-                            image={dropzoneFile ?? ''}
-                            width={120}
-                            height={120}
-                            border={8}
-                            color={[200, 200, 200, 0.6]}
-                            scale={editorScaleAdjusted}
-                            rotate={editorRotation}
-                            position={editorPosition}
-                            onPositionChange={handleEditorPositionChange}
-                        />
-                    </Grid>
-                    <Grid item xs={12}>
-                        <Grid container spacing={2}>
-                            <Grid item><ZoomOutIcon/></Grid>
-                            <Grid item xs>
-                                <Slider
-                                    min={0}
-                                    max={2}
-                                    step={0.01}
-                                    scale={adjustScale}
-                                    color='secondary'
-                                    valueLabelDisplay='auto'
-                                    valueLabelFormat={percentageLabelFormat}
-                                    value={editorScale}
-                                    onChange={handleEditorScaleChange}/>
-                            </Grid>
-                            <Grid item><ZoomInIcon/></Grid>
-                        </Grid>
-                    </Grid>
-                    <Grid item xs={12} sx={{ display: 'flex' }}>
-                        <Stack direction='row' spacing={2} sx={{ margin: '0 auto' }}>
-                            <IconButton onClick={rotateLeft} title='Rotate image counter-clockwise'>
-                                <RotateLeftIcon/>
-                            </IconButton>
-                            <IconButton onClick={rotateRight} title='Rotate image clockwise'>
-                                <RotateRightIcon/>
-                            </IconButton>
-                        </Stack>
-                    </Grid>
-                </Grid>
-            </DialogContent>
-            <DialogActions>
-                <Button
-                    variant='contained'
-                    color='primary'
-                    onClick={handleCancelEditLogo} >
-                    Cancel
-                </Button>
-                <Button
-                    autoFocus
-                    onClick={handleApplyLogo} >
-                    Apply logo
-                </Button>
-            </DialogActions>
-        </Dialog>
         <Grid container spacing={2}>
             <Grid item xs={12}>
                 <Typography variant='h5'>Details</Typography>
@@ -466,54 +253,7 @@ export const UserNamespaceDetails: FunctionComponent<UserNamespaceDetailsProps> 
                 : null
             }
             <Grid item xs={4} alignItems='center'>
-                <Dropzone
-                    onDrop={handleDrop}
-                    onFileDialogOpen={handleFileDialogOpen}
-                    noClick={isDropzoneDisabled()}
-                    noKeyboard={isDropzoneDisabled()}
-                    noDrag={isDropzoneDisabled()}
-                    maxFiles={1}
-                    maxSize={4 * 1024 * 1024}>
-                    {({ getRootProps, getInputProps, isFocused, isDragAccept, isDragReject }) => (
-                        <Box component='section' sx={{ display: 'grid' }}>
-                            <DropzoneDiv
-                                {...getRootProps({ isFocused, isDragAccept, isDragReject })}
-                                style={{ borderColor: getColor(isFocused, isDragAccept, isDragReject) }}
-                            >
-                                <input {...getInputProps({ accept: 'image/jpeg,image/png', multiple: false })} />
-                                <img src={logoPreview ?? newDetails?.logo ?? context.pageSettings.urls.extensionDefaultIcon}/>
-                            </DropzoneDiv>
-                            { logoPreview || newDetails?.logo ?
-                                <Box
-                                    component='div'
-                                    sx={{
-                                        gridRow: 1,
-                                        gridColumn: 1,
-                                        mb: -6,
-                                        display: 'flex',
-                                        opacity: 0,
-                                        height: '100%',
-                                        justifyContent: 'flex-end',
-                                        '&:hover': {
-                                            opacity: 1
-                                        }
-                                    }}
-                                >
-                                    { logoPreview ?
-                                        <IconButton onClick={editLogo} title='Edit logo' sx={{ height: 'fit-content' }}>
-                                            <EditIcon/>
-                                        </IconButton>
-                                        : null
-                                    }
-                                    <IconButton onClick={deleteLogo} title='Delete logo' sx={{ height: 'fit-content' }}>
-                                        <DeleteIcon/>
-                                    </IconButton>
-                                </Box>
-                                : null
-                            }
-                        </Box>
-                    )}
-                </Dropzone>
+                <UserNamespaceDetailsLogo/>
             </Grid>
             <Grid item xs={8}>
                 <Grid container spacing={2}>
