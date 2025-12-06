@@ -16,6 +16,7 @@ import { ButtonWithProgress } from '../../components/button-with-progress';
 import { ErrorResult, isError } from '../../extension-registry-types';
 import { MainContext } from '../../context';
 import { styled, Theme } from '@mui/material/styles';
+import { useCreateNamespaceMutation, useGetUserQuery, usePublishExtensionMutation } from '../../store/api';
 
 const getColor = (isFocused: boolean, isDragAccept: boolean, isDragReject: boolean) => {
     if (isDragAccept) {
@@ -52,6 +53,9 @@ export const PublishExtensionDialog: FunctionComponent<PublishExtensionDialogPro
 
     const context = useContext(MainContext);
     const abortController = useRef<AbortController>(new AbortController());
+    const [createNamespace] = useCreateNamespaceMutation()
+    const [publishExtension] = usePublishExtensionMutation()
+    const { data: user } = useGetUserQuery();
 
     useEffect(() => {
         document.addEventListener('keydown', handleEnter);
@@ -99,31 +103,21 @@ export const PublishExtensionDialog: FunctionComponent<PublishExtensionDialogPro
     const handleFileDialogOpen = () => setOldFileToPublish(undefined);
 
     const handlePublish = async () => {
-        if (!context.user || !fileToPublish) {
+        if (!user || !fileToPublish) {
             return;
         }
 
         setPublishing(true);
-        let published = false;
         let retryPublish = false;
-        try {
-            published = await tryPublishExtension(fileToPublish);
-        } catch (err) {
-            try {
-                await tryResolveNamespaceError(err);
-                retryPublish = true;
-            } catch (namespaceError) {
-                context.handleError(namespaceError);
-            }
+        let publishResponse = await publishExtension(fileToPublish);
+        if(isError(publishResponse)) {
+            await tryResolveNamespaceError(publishResponse);
+            retryPublish = true;
         }
         if (retryPublish) {
-            try {
-                published = await tryPublishExtension(fileToPublish);
-            } catch (err) {
-                context.handleError(err);
-            }
+            publishResponse = await publishExtension(fileToPublish);
         }
-        if (published) {
+        if (!isError(publishResponse)) {
             props.extensionPublished();
             setOpen(false);
             setFileToPublish(undefined);
@@ -139,17 +133,6 @@ export const PublishExtensionDialog: FunctionComponent<PublishExtensionDialogPro
         }
     };
 
-    const tryPublishExtension = async (fileToPublish: File): Promise<boolean> => {
-        let published = false;
-        const publishResponse = await context.service.publishExtension(abortController.current, fileToPublish);
-        if (isError(publishResponse)) {
-            throw publishResponse;
-        }
-
-        published = true;
-        return published;
-    };
-
     const tryResolveNamespaceError = async (publishResponse: Readonly<unknown>) => {
         const namespaceError = 'Unknown publisher: ';
         if (!isError(publishResponse) || !publishResponse.error.startsWith(namespaceError)) {
@@ -162,7 +145,7 @@ export const PublishExtensionDialog: FunctionComponent<PublishExtensionDialogPro
             };
             throw result;
         }
-        const namespaceResponse = await context.service.createNamespace(abortController.current, namespace);
+        const namespaceResponse = await createNamespace(namespace);
         if (isError(namespaceResponse)) {
             throw namespaceResponse;
         }

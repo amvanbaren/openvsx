@@ -157,6 +157,7 @@ export interface UserData {
     loginName: string;
     tokensUrl: UrlString;
     createTokenUrl: UrlString;
+    deleteAllTokensUrl: UrlString;
     fullName?: string;
     avatarUrl?: UrlString;
     homepage?: string;

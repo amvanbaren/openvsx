@@ -9,7 +9,7 @@
  ********************************************************************************/
 
 import * as React from 'react';
-import { ChangeEvent, FunctionComponent, ReactElement, ReactNode, useContext, useEffect, useState, useRef } from 'react';
+import { ChangeEvent, FunctionComponent, ReactElement, ReactNode, useContext, useEffect, useState } from 'react';
 import { Typography, Box, Theme, Container, Link, Avatar, Paper, Badge, SxProps, Tabs, Tab, Stack, useTheme, PaletteMode } from '@mui/material';
 import { Link as RouteLink, useNavigate, useParams } from 'react-router-dom';
 import SaveAltIcon from '@mui/icons-material/SaveAlt';
@@ -27,6 +27,7 @@ import { ExtensionDetailOverview } from './extension-detail-overview';
 import { ExtensionDetailChanges } from './extension-detail-changes';
 import { ExtensionDetailReviews } from './extension-detail-reviews';
 import styled from '@mui/material/styles/styled';
+import { useGetExtensionDetailQuery, useGetExtensionIconQuery } from '../../store/api';
 
 export namespace ExtensionDetailRoutes {
     export namespace Parameters {
@@ -69,20 +70,16 @@ const StyledHoverPopover = styled(HoverPopover)(alignVertically);
 
 export const ExtensionDetail: FunctionComponent = () => {
     const theme = useTheme();
-    const [loading, setLoading] = useState<boolean>(true);
-    const [notFoundError, setNotFoundError] = useState<string>();
-    const [extension, setExtension] = useState<Extension>();
     const [icon, setIcon] = useState<string>();
 
     const navigate = useNavigate();
     const { namespace, name, target, version } = useParams();
-    const { handleError, pageSettings, service } = useContext(MainContext);
+    const { pageSettings } = useContext(MainContext);
+    const { data: extension, isLoading, refetch } = useGetExtensionDetailQuery({ namespace: namespace as string, name: name as string, target, version })
+    const { data: iconBlob} = useGetExtensionIconQuery(extension as Extension)
 
-    const abortController = useRef<AbortController>(new AbortController());
     useEffect(() => {
-        updateExtension();
         return () => {
-            abortController.current.abort();
             if (icon) {
                 URL.revokeObjectURL(icon);
             }
@@ -94,46 +91,17 @@ export const ExtensionDetail: FunctionComponent = () => {
             return;
         }
 
-        setLoading(true);
-        updateExtension();
+        refetch()
     }, [namespace, name, target, version]);
 
-    const updateExtension = async (): Promise<void> => {
-        const extensionUrl = getExtensionApiUrl();
-        try {
-            const response = await service.getExtensionDetail(abortController.current, extensionUrl);
-            if (isError(response)) {
-                throw response;
-            }
-            const extension = response as Extension;
-            const icon = await updateIcon(extension);
-            setExtension(extension);
-            setIcon(icon);
-            setLoading(false);
-        } catch (err) {
-            if (err && err.status === 404) {
-                setNotFoundError(`Extension Not Found: ${namespace}.${name}`);
-                setLoading(false);
-            } else {
-                handleError(err);
-            }
-            setLoading(false);
-        }
-    };
-
-    const getExtensionApiUrl = (): string => {
-        return versionPointsToTab(version)
-            ? service.getExtensionApiUrl({ namespace: namespace as string, name: name as string })
-            : service.getExtensionApiUrl({ namespace: namespace as string, name: name as string, target: target, version: version });
-    };
-
-    const updateIcon = async (extension: Extension): Promise<string | undefined> => {
+    useEffect(() => {
         if (icon) {
             URL.revokeObjectURL(icon);
         }
 
-        return await service.getExtensionIcon(abortController.current, extension);
-    };
+        const newIcon = iconBlob ? URL.createObjectURL(iconBlob) : undefined
+        setIcon(newIcon)
+    }, [iconBlob]);
 
     const onVersionSelect = (version: string): void => {
         const arr = [ExtensionDetailRoutes.ROOT, namespace as string, name as string];
@@ -145,10 +113,6 @@ export const ExtensionDetail: FunctionComponent = () => {
         }
 
         navigate(createRoute(arr));
-    };
-
-    const onReviewUpdate = (): void => {
-        updateExtension();
     };
 
     const handleTabChange = (event: ChangeEvent, newTab: string): void => {
@@ -182,8 +146,8 @@ export const ExtensionDetail: FunctionComponent = () => {
     const renderHeaderTags = (extension?: Extension): ReactNode => {
         const { extensionHeadTags: ExtensionHeadTagsComponent } = pageSettings.elements;
         return <>
-            { ExtensionHeadTagsComponent
-                ? <ExtensionHeadTagsComponent extension={extension} pageSettings={pageSettings}/>
+            {ExtensionHeadTagsComponent
+                ? <ExtensionHeadTagsComponent extension={extension} pageSettings={pageSettings} />
                 : null
             }
         </>;
@@ -192,13 +156,13 @@ export const ExtensionDetail: FunctionComponent = () => {
     const renderNotFound = (): ReactNode => {
         return <>
             {
-                notFoundError ?
-                <Box p={4}>
-                    <Typography variant='h5'>
-                        {notFoundError}
-                    </Typography>
-                </Box>
-                : null
+                !isLoading ?
+                    <Box p={4}>
+                        <Typography variant='h5'>
+                            Extension Not Found: {namespace}.{name}
+                        </Typography>
+                    </Box>
+                    : null
             }
         </>;
     };
@@ -208,7 +172,7 @@ export const ExtensionDetail: FunctionComponent = () => {
             case 'changes':
                 return <ExtensionDetailChanges extension={extension} />;
             case 'reviews':
-                return <ExtensionDetailReviews extension={extension} reviewsDidUpdate={onReviewUpdate} />;
+                return <ExtensionDetailReviews extension={extension} />;
             default:
                 return <ExtensionDetailOverview extension={extension} selectVersion={onVersionSelect} />;
         }
@@ -241,7 +205,7 @@ export const ExtensionDetail: FunctionComponent = () => {
                         >
                             <Box
                                 component='img'
-                                src={icon ?? pageSettings.urls.extensionDefaultIcon }
+                                src={icon ?? pageSettings.urls.extensionDefaultIcon}
                                 alt={extension.displayName ?? extension.name}
                                 sx={{
                                     height: '7.5rem',
@@ -319,75 +283,75 @@ export const ExtensionDetail: FunctionComponent = () => {
         });
 
         return (
-        <Box overflow='auto' sx={{ pt: 1, overflow: 'visible' }}>
-            <Badge color='secondary' badgeContent='Preview' invisible={!extension.preview} sx={previewBadgeStyle}>
-                <Typography variant='h5' sx={{ fontWeight: 'bold', mb: 1 }}>
-                    { extension.displayName ?? extension.name}
-                </Typography>
-            </Badge>
-            { extension.deprecated &&
-                <Stack direction='row' alignItems='center'>
-                    <WarningIcon fontSize='small' />
-                    <Typography>
-                        This extension has been deprecated.{extension.replacement && <>&nbsp;Use <StyledLink sx={{ color: headerTextColor }} href={extension.replacement.url}>
-                            {extension.replacement.displayName}
-                        </StyledLink> instead.</>}
+            <Box overflow='auto' sx={{ pt: 1, overflow: 'visible' }}>
+                <Badge color='secondary' badgeContent='Preview' invisible={!extension.preview} sx={previewBadgeStyle}>
+                    <Typography variant='h5' sx={{ fontWeight: 'bold', mb: 1 }}>
+                        {extension.displayName ?? extension.name}
                     </Typography>
-                </Stack>
-            }
-            <Box
-                sx={{
-                    ...alignVertically,
-                    color: headerTextColor,
-                    flexDirection: { xs: 'column', sm: 'column', md: 'row', lg: 'row', xl: 'row' }
-                }}
-            >
-                <Box sx={alignVertically}>
-                    {renderAccessInfo(extension, headerTextColor)}&nbsp;
-                    <StyledRouteLink
-                        to={createRoute([NamespaceDetailRoutes.ROOT, extension.namespace])}
-                        style={{ color: headerTextColor }}>
-                        {extension.namespaceDisplayName}
-                    </StyledRouteLink>
-                </Box>
-                <TextDivider backgroundColor={headerTextColor} collapseSmall={true} />
-                <Box sx={alignVertically}>
-                    Published by&nbsp;{renderUser(extension.publishedBy, headerTextColor, alignVertically)}
-                </Box>
-                <TextDivider backgroundColor={headerTextColor} collapseSmall={true} />
-                <Box sx={alignVertically}>
-                    {renderLicense(extension, headerTextColor)}
-                </Box>
-            </Box>
-            <Box mt={2} mb={2} overflow='auto'>
-                <Typography sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{extension.description}</Typography>
-            </Box>
-            <Box
-                sx={{
-                    ...alignVertically,
-                    color: headerTextColor,
-                    justifyContent: { xs: 'center', sm: 'center', md: 'flex-start', lg: 'flex-start', xl: 'flex-start' }
-                }}
-            >
-                <Box component='span' sx={alignVertically}
-                    title={extension.downloadCount && extension.downloadCount >= 1000 ? `${extension.downloadCount} downloads` : undefined}>
-                    <SaveAltIcon fontSize='small' />&nbsp;{downloadCountFormatted}&nbsp;{extension.downloadCount === 1 ? 'download' : 'downloads'}
-                </Box>
-                <TextDivider backgroundColor={headerTextColor} />
-                <StyledLink
-                    href={createRoute([ExtensionDetailRoutes.ROOT, extension.namespace, extension.name, 'reviews'])}
+                </Badge>
+                {extension.deprecated &&
+                    <Stack direction='row' alignItems='center'>
+                        <WarningIcon fontSize='small' />
+                        <Typography>
+                            This extension has been deprecated.{extension.replacement && <>&nbsp;Use <StyledLink sx={{ color: headerTextColor }} href={extension.replacement.url}>
+                                {extension.replacement.displayName}
+                            </StyledLink> instead.</>}
+                        </Typography>
+                    </Stack>
+                }
+                <Box
                     sx={{
                         ...alignVertically,
-                        color: headerTextColor
+                        color: headerTextColor,
+                        flexDirection: { xs: 'column', sm: 'column', md: 'row', lg: 'row', xl: 'row' }
                     }}
-                    title={
-                        extension.averageRating !== undefined ?
-                            `Average rating: ${getRoundedRating(extension.averageRating)} out of 5 (${extension.reviewCount} reviews)`
-                            : 'Not rated yet'
-                    }>
-                    <ExportRatingStars number={extension.averageRating ?? 0} fontSize='small' />
-                    ({reviewCountFormatted})
-                </StyledLink>
+                >
+                    <Box sx={alignVertically}>
+                        {renderAccessInfo(extension, headerTextColor)}&nbsp;
+                        <StyledRouteLink
+                            to={createRoute([NamespaceDetailRoutes.ROOT, extension.namespace])}
+                            style={{ color: headerTextColor }}>
+                            {extension.namespaceDisplayName}
+                        </StyledRouteLink>
+                    </Box>
+                    <TextDivider backgroundColor={headerTextColor} collapseSmall={true} />
+                    <Box sx={alignVertically}>
+                        Published by&nbsp;{renderUser(extension.publishedBy, headerTextColor, alignVertically)}
+                    </Box>
+                    <TextDivider backgroundColor={headerTextColor} collapseSmall={true} />
+                    <Box sx={alignVertically}>
+                        {renderLicense(extension, headerTextColor)}
+                    </Box>
+                </Box>
+                <Box mt={2} mb={2} overflow='auto'>
+                    <Typography sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{extension.description}</Typography>
+                </Box>
+                <Box
+                    sx={{
+                        ...alignVertically,
+                        color: headerTextColor,
+                        justifyContent: { xs: 'center', sm: 'center', md: 'flex-start', lg: 'flex-start', xl: 'flex-start' }
+                    }}
+                >
+                    <Box component='span' sx={alignVertically}
+                        title={extension.downloadCount && extension.downloadCount >= 1000 ? `${extension.downloadCount} downloads` : undefined}>
+                        <SaveAltIcon fontSize='small' />&nbsp;{downloadCountFormatted}&nbsp;{extension.downloadCount === 1 ? 'download' : 'downloads'}
+                    </Box>
+                    <TextDivider backgroundColor={headerTextColor} />
+                    <StyledLink
+                        href={createRoute([ExtensionDetailRoutes.ROOT, extension.namespace, extension.name, 'reviews'])}
+                        sx={{
+                            ...alignVertically,
+                            color: headerTextColor
+                        }}
+                        title={
+                            extension.averageRating !== undefined ?
+                                `Average rating: ${getRoundedRating(extension.averageRating)} out of 5 (${extension.reviewCount} reviews)`
+                                : 'Not rated yet'
+                        }>
+                        <ExportRatingStars number={extension.averageRating ?? 0} fontSize='small' />
+                        ({reviewCountFormatted})
+                    </StyledLink>
                 </Box>
             </Box>
         );
@@ -420,18 +384,18 @@ export const ExtensionDetail: FunctionComponent = () => {
         const popupContent = <Box display='flex' flexDirection='row'>
             {
                 user.avatarUrl ?
-                <Avatar
-                    src={user.avatarUrl}
-                    alt={user.fullName ?? user.loginName}
-                    variant='rounded'
-                    sx={{ width: '60px', height: '60px' }} />
-                : null
+                    <Avatar
+                        src={user.avatarUrl}
+                        alt={user.fullName ?? user.loginName}
+                        variant='rounded'
+                        sx={{ width: '60px', height: '60px' }} />
+                    : null
             }
             <Box ml={2}>
                 {
                     user.fullName ?
-                    <Typography variant='h6'>{user.fullName}</Typography>
-                    : null
+                        <Typography variant='h6'>{user.fullName}</Typography>
+                        : null
                 }
                 <Typography variant='body1'>{user.loginName}</Typography>
             </Box>
@@ -443,13 +407,13 @@ export const ExtensionDetail: FunctionComponent = () => {
             <StyledLink href={user.homepage} sx={{ color: themeColor }}>
                 {
                     user.avatarUrl ?
-                    <>
-                        {user.loginName}&nbsp;<Avatar
-                            src={user.avatarUrl}
-                            alt={user.loginName}
-                            sx={{ width: '20px', height: '20px' }} />
-                    </>
-                    : user.loginName
+                        <>
+                            {user.loginName}&nbsp;<Avatar
+                                src={user.avatarUrl}
+                                alt={user.loginName}
+                                sx={{ width: '20px', height: '20px' }} />
+                        </>
+                        : user.loginName
                 }
             </StyledLink>
         </StyledHoverPopover>;
@@ -471,11 +435,11 @@ export const ExtensionDetail: FunctionComponent = () => {
     };
 
     return <>
-        { renderHeaderTags(extension) }
-        <DelayedLoadIndicator loading={loading} />
+        {renderHeaderTags(extension)}
+        <DelayedLoadIndicator loading={isLoading} />
         {
-            extension
-                ? renderExtension(extension)
+            extension && !isError(extension)
+                ? renderExtension(extension as Extension)
                 : renderNotFound()
         }
     </>;
