@@ -137,9 +137,7 @@ export const UserNamespaceDetailsLogo: FunctionComponent<UserNamespaceDetailsPro
                 setLogoPreview(URL.createObjectURL(blob));
 
                 if (newDetails) {
-                    const details = copy(newDetails);
-                    details.logo = dropzoneFile!.name;
-                    setNewDetails(details);
+                    setNewDetails({...newDetails, logo: dropzoneFile!.name});
                 }
             }
         });
@@ -157,9 +155,7 @@ export const UserNamespaceDetailsLogo: FunctionComponent<UserNamespaceDetailsPro
     const deleteLogo = () => {
         resetLogoPreview();
         if (newDetails) {
-            const details = copy(newDetails);
-            details.logo = undefined;
-            setNewDetails(details);
+            setNewDetails({...newDetails, logo: undefined});
         }
     };
 
